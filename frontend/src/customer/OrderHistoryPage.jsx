@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SiteHeader, Modal, useToast, ToastContainer } from "../shared/components";
 
 /* Star Rating Component */
@@ -13,31 +13,62 @@ function StarRating({ count = 5, value = 0, onChange }) {
   );
 }
 
-export default function OrderHistoryPage({ onNav, cart, newOrders = [], addresses = [], selectedAddrIdx = 0 }) {
+export default function OrderHistoryPage({ onNav, cart, newOrders = [], addresses = [], selectedAddrIdx = 0, user, token }) {
   const currentAddress = addresses[selectedAddrIdx]?.addr?.split(",")[0] || "Gomti Nagar, Lucknow";
-  // setTab()
   const [activeTab, setActiveTab] = useState("All Orders");
-  // openRate(), closeRate()
   const [rateModal, setRateModal] = useState(false);
-  // rateModal(n)
   const [rateValue, setRateValue] = useState(0);
-  // rate(n) — for biryani inline rating
   const [biryaniRating, setBiryaniRating] = useState(5);
+  const [liveOrders, setLiveOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
   const { toasts, show } = useToast();
 
   const tabs = ["All Orders", "Active", "Delivered", "Cancelled"];
 
-  // submitRate()
+  // Fetch real orders from backend
+  useEffect(() => {
+    if (!token) return;
+    const fetchOrders = async () => {
+      setLoadingOrders(true);
+      try {
+        const res = await fetch("http://localhost:5001/api/orders/myorders", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data)) {
+          const mapped = data.map(o => ({
+            id: o.orderId || o._id,
+            rest: o.restaurant?.name || "Restaurant",
+            date: new Date(o.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }),
+            img: o.restaurant?.image || null,
+            restEmoji: o.restaurant?.emoji || "🍴",
+            items: o.items,
+            status: o.status === "New" || o.status === "Preparing" || o.status === "Delivering" ? "active" : o.status === "Delivered" ? "delivered" : "cancelled",
+            statusLabel: o.status === "Delivered" ? "✓ Delivered" : o.status === "Cancelled" ? "✕ Cancelled" : o.status,
+            badgeCls: o.statusBadge || "badge-yellow",
+            total: o.amount,
+            count: o.itemsList?.length || 1,
+          }));
+          setLiveOrders(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch orders:", err);
+      } finally {
+        setLoadingOrders(false);
+      }
+    };
+    fetchOrders();
+  }, [token]);
+
   const submitRate = () => {
     setRateModal(false);
     show("Review submitted! Thanks 🙏", "success");
   };
 
-  // reorder
   const reorder = () => show("Items added to cart!", "success");
 
-  const orders = [
-    ...newOrders,
+  // Combine: live orders from DB + any local orders from this session + mock fallback
+  const mockFallback = !token ? [
     {
       id: "#BB2024118", rest: "Pizza Palace", date: "Today, 12:01 PM",
       img: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=100",
@@ -52,26 +83,17 @@ export default function OrderHistoryPage({ onNav, cart, newOrders = [], addresse
       status: "delivered", statusLabel: "✓ Delivered", badgeCls: "badge-green",
       total: "₹748", count: 5,
     },
-    {
-      id: "#BB2024080", rest: "Biryani Express", date: "Dec 16, 1:15 PM",
-      img: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=100",
-      items: "Chicken Hyderabadi Biryani × 2, Raita, Gulab Jamun",
-      status: "delivered", statusLabel: "✓ Delivered", badgeCls: "badge-green",
-      total: "₹699", count: 4, showStars: true,
-    },
-    {
-      id: "#BB2024055", rest: "Wok & Roll", date: "Dec 12, 7:45 PM",
-      img: null, restEmoji: "🍜",
-      items: "Hakka Noodles, Manchurian Gravy, Spring Rolls",
-      status: "cancelled", statusLabel: "✕ Cancelled", badgeCls: "badge-red",
-      total: "₹389", count: 3, cancelNote: "Cancelled reason: Restaurant unavailable · Full refund processed",
-    },
-  ];
+  ] : [];
 
-  const filtered = activeTab === "All Orders" ? orders
-    : activeTab === "Active" ? orders.filter(o => o.status === "active")
-    : activeTab === "Delivered" ? orders.filter(o => o.status === "delivered")
-    : orders.filter(o => o.status === "cancelled");
+  const orders = [...newOrders, ...liveOrders, ...mockFallback];
+  // Deduplicate by id
+  const seen = new Set();
+  const uniqueOrders = orders.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
+
+  const filtered = activeTab === "All Orders" ? uniqueOrders
+    : activeTab === "Active" ? uniqueOrders.filter(o => o.status === "active")
+    : activeTab === "Delivered" ? uniqueOrders.filter(o => o.status === "delivered")
+    : uniqueOrders.filter(o => o.status === "cancelled");
 
   return (
     <div>

@@ -20,7 +20,15 @@ const orderSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  itemsList: {
+    type: Array,
+    default: []
+  },
   amount: {
+    type: String,
+    required: true
+  },
+  address: {
     type: String,
     required: true
   },

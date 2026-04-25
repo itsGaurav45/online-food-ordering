@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Modal, useToast, ToastContainer } from "../shared/components";
 
-export default function CheckoutPage({ onNav, cart, addresses, setAddresses, selectedAddrIdx, setSelectedAddrIdx, onComplete }) {
+export default function CheckoutPage({ onNav, cart, addresses, setAddresses, selectedAddrIdx, setSelectedAddrIdx, onComplete, user, token, currentRestaurant }) {
   const subtotal = cart?.reduce((a, i) => a + i.price * i.qty, 0) || 0;
   const discount = subtotal > 500 ? 149 : 0;
   const total = subtotal > 0 ? subtotal - discount + 52 : 0;
@@ -11,7 +11,9 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
   const [selectedDT,   setSelectedDT]     = useState(0);   // selectDT()
   const [payMethod,    setPayMethod]       = useState("upi"); // selectPay()
   const [selectedUPI,  setSelectedUPI]     = useState("gpay"); // selectUPI()
-  const [orderPlaced,  setOrderPlaced]     = useState(false);  // placeOrder()
+  const [orderPlaced,  setOrderPlaced]     = useState(false);
+  const [placedOrderId, setPlacedOrderId] = useState("");
+  const [placing, setPlacing]             = useState(false);
   const { toasts, show } = useToast();
 
   const currentAddress = addresses[selectedAddrIdx]?.addr?.split(",")[0] || "Gomti Nagar, Lucknow";
@@ -37,13 +39,59 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
     { id: "bhim", label: "🟠 BHIM" },
   ];
 
-  // placeOrder()
-  const placeOrder = () => {
-    if (!cart || cart.length === 0) {
-      show("Your cart is empty!", "error");
-      return;
+  // placeOrder() — real API call
+  const placeOrder = async () => {
+    if (!cart || cart.length === 0) { show("Your cart is empty!", "error"); return; }
+    if (!addresses || addresses.length === 0) { show("Please add a delivery address!", "error"); return; }
+    setPlacing(true);
+    try {
+      const restaurantId = cart[0]?.restaurantId;
+      if (!restaurantId) {
+        // Fallback: no restaurantId yet, create a local order object
+        const fallbackOrder = {
+          id: "#BB" + Math.floor(100000 + Math.random() * 900000),
+          rest: currentRestaurant || "Restaurant",
+          date: "Just now",
+          items: cart.map(i => i.name).join(", "),
+          itemsList: [...cart],
+          status: "active", statusLabel: "Out for Delivery", badgeCls: "badge-orange",
+          total: `₹${total}`, count: cart.reduce((a, i) => a + i.qty, 0),
+          address: addresses[selectedAddrIdx]?.addr
+        };
+        setPlacedOrderId(fallbackOrder.id);
+        setOrderPlaced(true);
+        onComplete(fallbackOrder);
+        setPlacing(false);
+        return;
+      }
+      const res = await fetch("http://localhost:5001/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          restaurant: restaurantId,
+          items: cart.map(i => `${i.name} × ${i.qty}`).join(", "),
+          itemsList: cart,
+          amount: `₹${total}`,
+          address: addresses[selectedAddrIdx]?.addr || "Lucknow",
+          paymentMethod: payMethod === "cod" ? "COD" : payMethod === "card" ? "Card" : "UPI"
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to place order");
+      const newOrder = {
+        id: data.orderId, _id: data._id, rest: currentRestaurant || "Restaurant",
+        date: "Just now", items: data.items, itemsList: cart,
+        status: "active", statusLabel: "Out for Delivery", badgeCls: "badge-orange",
+        total: data.amount, count: cart.reduce((a, i) => a + i.qty, 0), address: data.address
+      };
+      setPlacedOrderId(data.orderId);
+      setOrderPlaced(true);
+      onComplete(newOrder);
+    } catch (err) {
+      show(err.message, "error");
+    } finally {
+      setPlacing(false);
     }
-    setOrderPlaced(true);
   };
 
   const SectionCard = ({ step, title, children }) => (
@@ -189,8 +237,8 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
                     <i className="fa-solid fa-piggy-bank"></i> You save ₹{discount + 49} on this order!
                   </div>
                 )}
-                <button className="btn btn-primary btn-full btn-lg" onClick={placeOrder} disabled={!cart?.length || !addresses?.length}>
-                  <i className="fa-solid fa-check"></i> Place Order · ₹{total}
+                <button className="btn btn-primary btn-full btn-lg" onClick={placeOrder} disabled={!cart?.length || !addresses?.length || placing}>
+                  {placing ? <><i className="fa-solid fa-spinner fa-spin"></i> Placing...</> : <><i className="fa-solid fa-check"></i> Place Order · ₹{total}</>}
                 </button>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 12, fontSize: "0.72rem", color: "var(--text3)" }}>
                   <i className="fa-solid fa-shield-halved" style={{ color: "var(--green)" }}></i> 100% Secure Payment
@@ -212,7 +260,7 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: "4rem", marginBottom: 16, animation: "pulse 1s ease infinite" }}>🎉</div>
           <h2 style={{ fontSize: "1.6rem", marginBottom: 8 }}>Order Placed!</h2>
-          <p style={{ color: "var(--text2)", marginBottom: 6 }}>Your order <strong>#BB2024118</strong> has been placed successfully!</p>
+          <p style={{ color: "var(--text2)", marginBottom: 6 }}>Your order <strong>{placedOrderId || "#BB..."}  </strong> has been placed successfully!</p>
           <p style={{ color: "var(--text3)", fontSize: "0.85rem", marginBottom: 24 }}>Estimated delivery: <strong style={{ color: "var(--red)" }}>22-28 minutes</strong></p>
           <div style={{ background: "var(--bg2)", borderRadius: "var(--radius)", padding: 16 }}>
             <div style={{ fontSize: "0.82rem", color: "var(--text3)", marginBottom: 4 }}>Order from</div>

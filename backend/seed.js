@@ -8,9 +8,10 @@ import Order from './models/Order.js';
 dotenv.config();
 
 const users = [
-  { name: "Arjun Sharma", email: "arjun@example.com", phone: "+91 98765 43210", role: "customer", initials: "AS", avatarBg: "var(--red)", totalOrders: 24, totalSpent: "₹8,420" },
-  { name: "Priya Mehta", email: "priya@example.com", phone: "+91 87654 32109", role: "customer", initials: "PM", avatarBg: "var(--orange)", totalOrders: 18, totalSpent: "₹6,240" },
-  { name: "Super Admin", email: "admin@bitebolt.com", phone: "+91 11111 11111", role: "admin", initials: "AD", avatarBg: "var(--dark)" }
+  { name: "Arjun Sharma", email: "arjun@example.com", phone: "+91 98765 43210", role: "customer", password: "password123", initials: "AS", avatarBg: "var(--red)", totalOrders: 24, totalSpent: "₹8,420" },
+  { name: "Priya Mehta", email: "priya@example.com", phone: "+91 87654 32109", role: "customer", password: "password123", initials: "PM", avatarBg: "var(--orange)", totalOrders: 18, totalSpent: "₹6,240" },
+  { name: "Pizza Palace", email: "restaurant@bitebolt.com", phone: "+91 99999 11111", role: "restaurant", password: "restaurant123", initials: "PP", avatarBg: "var(--teal)" },
+  { name: "Super Admin", email: "admin@bitebolt.com", phone: "+91 11111 11111", role: "admin", password: "admin123", initials: "AD", avatarBg: "var(--dark)" }
 ];
 
 const foods = [
@@ -67,7 +68,14 @@ const seedDB = async () => {
     await Order.deleteMany();
     console.log('Cleared existing data...');
 
-    const createdUsers = await User.insertMany(users);
+    // Create users one by one so bcrypt pre-save hook fires
+    const createdUsers = [];
+    for (const u of users) {
+      const user = await new User(u).save();
+      createdUsers.push(user);
+    }
+    console.log(`Created ${createdUsers.length} users with hashed passwords`);
+
     const createdRests = await Restaurant.insertMany(restaurants);
     await Food.insertMany(foods);
 
@@ -77,8 +85,11 @@ const seedDB = async () => {
         orderId: "#BB2024119",
         customer: createdUsers[0]._id,
         restaurant: createdRests[0]._id,
-        items: "3 items",
+        items: "Margherita Pizza × 2, Penne Arrabbiata × 1",
+        itemsList: [],
         amount: "₹698",
+        address: "B-12 Gomti Nagar, Lucknow",
+        paymentMethod: "UPI",
         status: "New",
         statusBadge: "badge-yellow"
       }

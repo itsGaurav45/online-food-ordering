@@ -14,10 +14,25 @@ export function LoginPage({ onLogin, onNav }) {
   const togglePwd = () => setShowPw(p => !p);
 
   // handleLogin()
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     show("Logging in...", "info");
-    setTimeout(() => onLogin("customer"), 1000);
+    try {
+      const res = await fetch("http://localhost:5001/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Login failed");
+      
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data));
+      
+      setTimeout(() => onLogin(data.role), 500);
+    } catch (err) {
+      show(err.message, "error");
+    }
   };
 
   return (
@@ -102,6 +117,11 @@ export function LoginPage({ onLogin, onNav }) {
 export function RegisterPage({ onLogin, onNav }) {
   const [showPw, setShowPw] = useState(false);
   const [strength, setStrength] = useState({ w: "0%", c: "", t: "Enter password" });
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [regPassword, setRegPassword] = useState("");
   const { toasts, show } = useToast();
 
   // checkStrength(v)
@@ -117,10 +137,27 @@ export function RegisterPage({ onLogin, onNav }) {
   };
 
   // handleRegister(e)
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    show("Account created! Redirecting to login...", "success");
-    setTimeout(() => onNav("login"), 1200);
+    show("Creating your account...", "info");
+    try {
+      const res = await fetch("http://localhost:5001/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${firstName} ${lastName}`.trim(),
+          email: regEmail,
+          password: regPassword,
+          phone
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Registration failed");
+      show("Account created! Redirecting to login...", "success");
+      setTimeout(() => onNav("login"), 1200);
+    } catch (err) {
+      show(err.message, "error");
+    }
   };
 
   return (
@@ -146,29 +183,29 @@ export function RegisterPage({ onLogin, onNav }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 0 }}>
               <div className="form-group">
                 <label className="form-label">First Name</label>
-                <div className="input-wrap"><i className="fa-solid fa-user input-icon"></i><input type="text" className="form-input" placeholder="Arjun" required /></div>
+                <div className="input-wrap"><i className="fa-solid fa-user input-icon"></i><input type="text" className="form-input" placeholder="Arjun" required value={firstName} onChange={e => setFirstName(e.target.value)} /></div>
               </div>
               <div className="form-group">
                 <label className="form-label">Last Name</label>
-                <div className="input-wrap"><i className="fa-solid fa-user input-icon"></i><input type="text" className="form-input" placeholder="Sharma" required /></div>
+                <div className="input-wrap"><i className="fa-solid fa-user input-icon"></i><input type="text" className="form-input" placeholder="Sharma" required value={lastName} onChange={e => setLastName(e.target.value)} /></div>
               </div>
             </div>
             <div className="form-group">
               <label className="form-label">Email Address</label>
-              <div className="input-wrap"><i className="fa-solid fa-envelope input-icon"></i><input type="email" className="form-input" placeholder="you@example.com" required /></div>
+              <div className="input-wrap"><i className="fa-solid fa-envelope input-icon"></i><input type="email" className="form-input" placeholder="you@example.com" required value={regEmail} onChange={e => setRegEmail(e.target.value)} /></div>
             </div>
             <div className="form-group">
               <label className="form-label">Mobile Number</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <div style={{ background: "var(--gray4)", border: "1.5px solid transparent", borderRadius: "var(--radius)", padding: "12px 14px", fontSize: "0.88rem", fontWeight: 700, color: "var(--text2)", whiteSpace: "nowrap" }}>🇮🇳 +91</div>
-                <div className="input-wrap" style={{ flex: 1 }}><i className="fa-solid fa-phone input-icon"></i><input type="tel" className="form-input" placeholder="98765 43210" required /></div>
+                <div className="input-wrap" style={{ flex: 1 }}><i className="fa-solid fa-phone input-icon"></i><input type="tel" className="form-input" placeholder="98765 43210" required value={phone} onChange={e => setPhone(e.target.value)} /></div>
               </div>
             </div>
             <div className="form-group">
               <label className="form-label">Password</label>
               <div className="input-wrap">
                 <i className="fa-solid fa-lock input-icon"></i>
-                <input type={showPw ? "text" : "password"} className="form-input" placeholder="Min 8 characters" required onChange={e => checkStrength(e.target.value)} />
+                <input type={showPw ? "text" : "password"} className="form-input" placeholder="Min 8 characters" required value={regPassword} onChange={e => { setRegPassword(e.target.value); checkStrength(e.target.value); }} />
                 {/* togglePwd */}
                 <button type="button" className="input-toggle" onClick={() => setShowPw(p => !p)}>
                   <i className={`fa-solid ${showPw ? "fa-eye-slash" : "fa-eye"}`}></i>

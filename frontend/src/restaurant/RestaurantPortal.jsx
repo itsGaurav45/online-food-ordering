@@ -19,7 +19,7 @@ const REST_NAV = [
 /* ═══════════════════════════════════════════════════════
    RESTAURANT DASHBOARD — acceptOrder(), rejectOrder(), BarChart, markReady
 ═══════════════════════════════════════════════════════ */
-function RestDashboard({ onNav }) {
+function RestDashboard({ onNav, token }) {
   const { toasts, show } = useToast();
   // Live orders list — acceptOrder() / rejectOrder()
   const [liveOrders, setLiveOrders] = useState([
@@ -34,14 +34,34 @@ function RestDashboard({ onNav }) {
   const statusTextClr = { new: "#8A6800", preparing: "#C45D30", delivering: "var(--teal)", delivered: "#197A32" };
 
   // acceptOrder(id)
-  const acceptOrder = (id) => {
+  const acceptOrder = async (id) => {
+    const order = liveOrders.find(o => o.id === id);
+    if (order?._id) {
+      try {
+        await fetch(`http://localhost:5001/api/orders/${order._id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ status: "Preparing", statusBadge: "badge-orange" })
+        });
+      } catch (e) { console.error(e); }
+    }
     setLiveOrders(p => p.map(o => o.id === id ? { ...o, status: "preparing", statusLabel: "Preparing" } : o));
     setNewOrderBadge(b => Math.max(0, b - 1));
     show("Order accepted!", "success");
   };
 
   // rejectOrder(id)
-  const rejectOrder = (id) => {
+  const rejectOrder = async (id) => {
+    const order = liveOrders.find(o => o.id === id);
+    if (order?._id) {
+      try {
+        await fetch(`http://localhost:5001/api/orders/${order._id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ status: "Cancelled", statusBadge: "badge-red" })
+        });
+      } catch (e) { console.error(e); }
+    }
     setLiveOrders(p => p.filter(o => o.id !== id));
     show("Order rejected", "error");
   };
@@ -546,7 +566,7 @@ function RestMenu() {
 /* ═══════════════════════════════════════════════════════
    RESTAURANT PORTAL SHELL
 ═══════════════════════════════════════════════════════ */
-export default function RestaurantPortal({ onSignOut }) {
+export default function RestaurantPortal({ onSignOut, user, token }) {
   const [page, setPage] = useState("dashboard");
 
   const handleNav = (id) => {
@@ -554,8 +574,11 @@ export default function RestaurantPortal({ onSignOut }) {
     setPage(id);
   };
 
+  const restName = user?.name || "Pizza Palace";
+  const restInitials = restName.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
+
   const pages = {
-    dashboard: <RestDashboard onNav={setPage} />,
+    dashboard: <RestDashboard onNav={setPage} token={token} />,
     orders:    <RestOrders />,
     menu:      <RestMenu />,
   };
@@ -567,9 +590,9 @@ export default function RestaurantPortal({ onSignOut }) {
         navItems={REST_NAV}
         activeItem={page}
         onNav={handleNav}
-        userName="Pizza Palace"
+        userName={restName}
         userRole="Restaurant Owner"
-        userInitials="PP"
+        userInitials={restInitials}
       />
       <main className="panel-content">
         {pages[page] || pages["dashboard"]}
