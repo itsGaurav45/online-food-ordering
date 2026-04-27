@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { SiteHeader, useToast, ToastContainer } from "../shared/components";
+import API_URL from "../apiConfig";
 
 export default function RestaurantsPage({ onNav, cart, addresses = [], selectedAddrIdx = 0, user }) {
   const [activeFilter, setActiveFilter] = useState("All");
@@ -13,7 +14,7 @@ export default function RestaurantsPage({ onNav, cart, addresses = [], selectedA
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
-        const response = await fetch('/api/restaurants');
+        const response = await fetch(`${API_URL}/api/restaurants`);
         const data = await response.json();
         setRestaurants(data.map(r => ({
           ...r,

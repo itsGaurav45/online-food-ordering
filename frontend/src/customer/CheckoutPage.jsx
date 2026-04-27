@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, useToast, ToastContainer } from "../shared/components";
+import API_URL from "../apiConfig";
 
 export default function CheckoutPage({ onNav, cart, addresses, setAddresses, selectedAddrIdx, setSelectedAddrIdx, onComplete, user, token, currentRestaurant }) {
   const subtotal = cart?.reduce((a, i) => a + i.price * i.qty, 0) || 0;
@@ -66,7 +67,7 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
     try {
       const restaurantId = cart[0]?.restaurantId;
 
-      const res = await fetch("/api/orders", {
+      const res = await fetch(`${API_URL}/api/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({

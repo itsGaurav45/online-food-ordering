@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
 import { useToast, ToastContainer } from "../shared/components";
 import { useGoogleLogin } from '@react-oauth/google';
+import API_URL from "../apiConfig";
+
 
 /* ═══════════════════════════════════════════════
    LOGIN PAGE — togglePwd(), handleLogin()
@@ -22,7 +24,7 @@ export function LoginPage({ onLogin, onNav }) {
         const userInfo = await res.json();
         
         // Now send this info to our backend to login/register
-        const backendRes = await fetch("/api/auth/google", {
+        const backendRes = await fetch(`${API_URL}/api/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
@@ -55,7 +57,7 @@ export function LoginPage({ onLogin, onNav }) {
   const quickLogin = async (acc) => {
     show(`Logging in as ${acc.label}...`, "info");
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: acc.email, password: acc.password })
@@ -78,7 +80,7 @@ export function LoginPage({ onLogin, onNav }) {
     e.preventDefault();
     show("Logging in...", "info");
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -229,7 +231,7 @@ export function RegisterPage({ onLogin, onNav }) {
         });
         const userInfo = await res.json();
         
-        const backendRes = await fetch("/api/auth/google", {
+        const backendRes = await fetch(`${API_URL}/api/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
@@ -270,7 +272,7 @@ export function RegisterPage({ onLogin, onNav }) {
     e.preventDefault();
     show("Creating your account...", "info");
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

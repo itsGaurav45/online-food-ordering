@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Navigate } from "react-router-dom";
 import { PanelSidebar, BarChart, Modal, useToast, ToastContainer } from "../shared/components";
+import API_URL from "../apiConfig";
 
 /* ─── Restaurant Nav Config ──────────────────────────── */
 const REST_NAV = [
@@ -182,7 +183,7 @@ function RestDashboard({ onNav, token, restaurant, user }) {
   const fetchOrders = async () => {
     if (!restaurant?._id) return;
     try {
-      const res = await fetch(`/api/orders/restaurant/${restaurant._id}`, {
+      const res = await fetch(`${API_URL}/api/orders/restaurant/${restaurant._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -235,7 +236,7 @@ function RestDashboard({ onNav, token, restaurant, user }) {
     const order = liveOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`/api/orders/${order._id}/status`, {
+        await fetch(`${API_URL}/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Preparing", statusBadge: "badge-orange" })
@@ -250,7 +251,7 @@ function RestDashboard({ onNav, token, restaurant, user }) {
   // acceptOrderFromPopup(order) — from popup notification
   const acceptOrderFromPopup = async (order) => {
     try {
-      await fetch(`/api/orders/${order._id}/status`, {
+      await fetch(`${API_URL}/api/orders/${order._id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ status: "Preparing", statusBadge: "badge-orange" })
@@ -268,7 +269,7 @@ function RestDashboard({ onNav, token, restaurant, user }) {
   // rejectOrderFromPopup(order) — from popup notification
   const rejectOrderFromPopup = async (order) => {
     try {
-      await fetch(`/api/orders/${order._id}/status`, {
+      await fetch(`${API_URL}/api/orders/${order._id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ status: "Cancelled", statusBadge: "badge-red" })
@@ -284,7 +285,7 @@ function RestDashboard({ onNav, token, restaurant, user }) {
     const order = liveOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`/api/orders/${order._id}/status`, {
+        await fetch(`${API_URL}/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Cancelled", statusBadge: "badge-red" })
@@ -300,7 +301,7 @@ function RestDashboard({ onNav, token, restaurant, user }) {
     const order = liveOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`/api/orders/${order._id}/status`, {
+        await fetch(`${API_URL}/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Delivering", statusBadge: "badge-teal" })
@@ -453,7 +454,7 @@ function RestOrders({ token, restaurant }) {
   const fetchOrders = async () => {
     if (!restaurant?._id) return;
     try {
-      const res = await fetch(`/api/orders/restaurant/${restaurant._id}`, {
+      const res = await fetch(`${API_URL}/api/orders/restaurant/${restaurant._id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -484,7 +485,7 @@ function RestOrders({ token, restaurant }) {
     const order = allOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`/api/orders/${order._id}/status`, {
+        await fetch(`${API_URL}/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Preparing", statusBadge: "badge-orange" })
@@ -500,7 +501,7 @@ function RestOrders({ token, restaurant }) {
     const order = allOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`/api/orders/${order._id}/status`, {
+        await fetch(`${API_URL}/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Cancelled", statusBadge: "badge-red" })
@@ -516,7 +517,7 @@ function RestOrders({ token, restaurant }) {
     const order = allOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`/api/orders/${order._id}/status`, {
+        await fetch(`${API_URL}/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Delivering", statusBadge: "badge-teal" })
@@ -532,7 +533,7 @@ function RestOrders({ token, restaurant }) {
     const order = allOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`/api/orders/${order._id}/status`, {
+        await fetch(`${API_URL}/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Delivered", statusBadge: "badge-green" })
@@ -867,7 +868,7 @@ export default function RestaurantPortal({ onSignOut, user, token }) {
     if (!user || user.role !== 'restaurant') return;
     const fetchMyRest = async () => {
       try {
-        const res = await fetch('/api/restaurants/mine', {
+        const res = await fetch(`${API_URL}/api/restaurants/mine`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

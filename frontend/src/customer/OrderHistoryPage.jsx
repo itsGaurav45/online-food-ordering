@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { SiteHeader, Modal, useToast, ToastContainer } from "../shared/components";
+import API_URL from "../apiConfig";
 
 /* Star Rating Component */
 function StarRating({ count = 5, value = 0, onChange }) {
@@ -31,7 +32,7 @@ export default function OrderHistoryPage({ onNav, cart, newOrders = [], addresse
     const fetchOrders = async () => {
       setLoadingOrders(true);
       try {
-        const res = await fetch("/api/orders/myorders", {
+        const res = await fetch(`${API_URL}/api/orders/myorders`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await res.json();

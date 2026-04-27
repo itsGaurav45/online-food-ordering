@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useToast, ToastContainer } from "../shared/components";
 import { io } from "socket.io-client";
+import API_URL from "../apiConfig";
+
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -120,7 +122,7 @@ export default function TrackingPage({ onNav, addresses = [], selectedAddrIdx = 
 
     const fetchStatus = async () => {
       try {
-        const res = await fetch(`/api/orders/${order._id}`, {
+        const res = await fetch(`${API_URL}/api/orders/${order._id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { SiteHeader, useToast, ToastContainer } from "../shared/components";
+import API_URL from "../apiConfig";
+
 
 /* Veg/NonVeg indicator */
 function VegDot({ veg }) {
@@ -135,7 +137,7 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
   useEffect(() => {
     const fetchFoods = async () => {
       try {
-        const response = await fetch('/api/foods');
+        const response = await fetch(`${API_URL}/api/foods`);
         let data = await response.json();
         
         // Dynamically filter data based on restaurant name for demo purposes

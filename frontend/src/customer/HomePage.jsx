@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { SiteHeader, SiteFooter, useToast, ToastContainer } from "../shared/components";
+import API_URL from "../apiConfig";
 
 const heroImages = [
   {
@@ -56,7 +57,7 @@ export default function HomePage({ onNav, cart, addresses = [], selectedAddrIdx 
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
-        const response = await fetch('/api/restaurants');
+        const response = await fetch(`${API_URL}/api/restaurants`);
         const data = await response.json();
         setRestaurants(data.map(r => ({
           ...r,
