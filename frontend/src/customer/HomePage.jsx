@@ -1,16 +1,46 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SiteHeader, SiteFooter, useToast, ToastContainer } from "../shared/components";
 
-export default function HomePage({ onNav, cart, addresses = [], selectedAddrIdx = 0 }) {
+const heroImages = [
+  {
+    src: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600",
+    label: "🍔 Juicy Burgers",
+    tag: "#1 Bestseller"
+  },
+  {
+    src: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600",
+    label: "🍗 Awadhi Biryani",
+    tag: "Lucknow Special"
+  },
+  {
+    src: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600",
+    label: "🍕 Wood-fired Pizza",
+    tag: "Hot & Fresh"
+  }
+];
+
+export default function HomePage({ onNav, cart, addresses = [], selectedAddrIdx = 0, user }) {
   // filterCat()
-  const [activeCat, setActiveCat] = useState("pizza");
+  const [activeCat, setActiveCat] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchRecs, setShowSearchRecs] = useState(false);
   const { toasts, show } = useToast();
+  const [heroIdx, setHeroIdx] = useState(0);
+  const [heroPrev, setHeroPrev] = useState(null);
+  const heroTimer = useRef(null);
+
+  useEffect(() => {
+    heroTimer.current = setInterval(() => {
+      setHeroPrev(prev => prev);
+      setHeroIdx(i => (i + 1) % heroImages.length);
+    }, 3200);
+    return () => clearInterval(heroTimer.current);
+  }, []);
 
   const currentAddress = addresses[selectedAddrIdx]?.addr?.split(",")[0] || "Gomti Nagar, Lucknow";
 
   const cats = [
+    { id: "all", emoji: "🍽️", name: "All" },
     { id: "pizza", emoji: "🍕", name: "Pizza" },
     { id: "burger", emoji: "🍔", name: "Burger" },
     { id: "biryani", emoji: "🍚", name: "Biryani" },
@@ -20,31 +50,40 @@ export default function HomePage({ onNav, cart, addresses = [], selectedAddrIdx 
     { id: "healthy", emoji: "🥗", name: "Healthy" },
   ];
 
-  const restaurants = [
-    { name: "Pizza Palace, Gomti Nagar", cuisine: "Pizza · Italian · Pasta", img: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400", promo: "🎉 50% off up to ₹100", rating: "4.8", time: "22 min", delivery: "Free delivery", cost: "₹200", badge: "Pure Veg" },
-    { name: "Domino's Pizza, Hazratganj", cuisine: "Pizza · Fast Food", img: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400", promo: "₹150 OFF", rating: "4.3", time: "25 min", delivery: "₹30 delivery", cost: "₹250" },
-    { name: "Burger Brothers, Aliganj", cuisine: "Burgers · American · Shakes", img: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400", promo: "🎁 Free fries on ₹399+", rating: "4.6", time: "18 min", delivery: "₹29 delivery", cost: "₹300" },
-    { name: "Burger King, Phoenix Palassio", cuisine: "Burgers · Fast Food", img: "https://images.unsplash.com/photo-1586816001966-79b736744398?w=400", promo: null, rating: "4.4", time: "35 min", delivery: "₹45 delivery", cost: "₹250" },
-    { name: "Biryani Express, Aminabad", cuisine: "Biryani · Mughlai · North Indian", img: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=400", promo: "🍛 Weekend Offer", rating: "4.9", time: "30 min", delivery: "Free delivery", cost: "₹350" },
-    { name: "Dastarkhwan, Lalbagh", cuisine: "Mughlai · Biryani · Lucknowi", img: "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?w=400", promo: "10% OFF", rating: "4.7", time: "40 min", delivery: "₹40 delivery", cost: "₹500" },
-    { name: "Wok & Roll, Indira Nagar", cuisine: "Chinese · Thai · Asian", img: "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=400", promo: null, rating: "4.4", time: "25 min", delivery: "₹49 delivery", cost: "₹280" },
-    { name: "Chung Fa, Mahanagar", cuisine: "Chinese · Asian", img: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400", promo: "Free spring rolls", rating: "4.5", time: "30 min", delivery: "₹35 delivery", cost: "₹400" },
-    { name: "Sushi House, Gomti Nagar", cuisine: "Sushi · Japanese · Asian", img: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=400", promo: "🍣 20% OFF", rating: "4.6", time: "45 min", delivery: "₹60 delivery", cost: "₹800" },
-    { name: "Tokyo Drift, Hazratganj", cuisine: "Sushi · Japanese", img: "https://images.unsplash.com/photo-1553621042-f6e147245754?w=400", promo: null, rating: "4.3", time: "50 min", delivery: "₹50 delivery", cost: "₹750" },
-    { name: "Sugar Rush, Kapoorthala", cuisine: "Desserts · Bakery · Cakes", img: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=400", promo: "Buy 1 Get 1", rating: "4.8", time: "15 min", delivery: "Free delivery", cost: "₹150", badge: "New" },
-    { name: "Green Bowl, Vikas Nagar", cuisine: "Healthy · Salads", img: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400", promo: null, rating: "4.5", time: "20 min", delivery: "₹25 delivery", cost: "₹250", badge: "Pure Veg" }
-  ];
+  const [restaurants, setRestaurants] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRestaurants = async () => {
+      try {
+        const response = await fetch('/api/restaurants');
+        const data = await response.json();
+        setRestaurants(data.map(r => ({
+          ...r,
+          img: r.image,
+          time: r.deliveryTime + " min",
+          delivery: r.deliveryFee === "Free" ? "Free delivery" : "₹" + r.deliveryFee + " delivery",
+          cost: "₹" + r.costForTwo
+        })));
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching restaurants:', error);
+        setLoading(false);
+      }
+    };
+    fetchRestaurants();
+  }, []);
 
   const searchResults = restaurants.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    r.cuisine.toLowerCase().includes(searchQuery.toLowerCase())
+    r.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    r.cuisine?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredRestaurants = activeCat === "all" ? restaurants : restaurants.filter(r => r.cuisine.toLowerCase().includes(activeCat.toLowerCase()));
+  const filteredRestaurants = activeCat === "all" ? restaurants : restaurants.filter(r => r.cuisine?.toLowerCase().includes(activeCat.toLowerCase()));
 
   return (
     <div>
-      <SiteHeader cartCount={cart?.length || 0} onNav={onNav} currentAddress={currentAddress} />
+      <SiteHeader cartCount={cart?.length || 0} onNav={onNav} currentAddress={currentAddress} user={user} />
 
       {/* HERO */}
       <section style={{ background: "linear-gradient(135deg,#FFF5EE 0%,#FFEBE0 50%,#FFF0F0 100%)", padding: "60px 0 0", overflow: "hidden", position: "relative" }}>
@@ -89,20 +128,73 @@ export default function HomePage({ onNav, cart, addresses = [], selectedAddrIdx 
                 ))}
               </div>
             </div>
-            <div className="fade-up-2" style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "flex-end" }}>
-              <div style={{ position: "absolute", width: 420, height: 420, background: "radial-gradient(circle,rgba(244,132,95,0.15),rgba(230,57,70,0.08),transparent 70%)", borderRadius: "50%", top: "50%", left: "50%", transform: "translate(-50%,-50%)" }}></div>
-              <img style={{ position: "relative", zIndex: 1, maxWidth: 460, animation: "float 3.5s ease-in-out infinite" }}
-                src="https://img.freepik.com/free-photo/tasty-burger-isolated-white-background_1268-5393.jpg"
-                onError={e => { e.target.src = "https://placehold.co/460x400/FFF5EE/E63946?text=🍔+Order+Now"; }}
-                alt="Food" />
-              {/* Floaters */}
-              <div style={{ position: "absolute", background: "#fff", borderRadius: "var(--radius-lg)", padding: "12px 16px", boxShadow: "var(--shadow-lg)", display: "flex", alignItems: "center", gap: 10, fontSize: "0.82rem", fontWeight: 700, zIndex: 2, top: "20%", left: "-10px", animation: "float 3s ease-in-out infinite" }}>
-                <div style={{ background: "var(--red-light)", width: 32, height: 32, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>🍕</div>
-                <div><div style={{ fontWeight: 800 }}>Pizza Palace</div><div style={{ fontSize: "0.72rem", color: "var(--text3)" }}>⭐ 4.8 · 22 min</div></div>
-              </div>
-              <div style={{ position: "absolute", background: "#fff", borderRadius: "var(--radius-lg)", padding: "12px 16px", boxShadow: "var(--shadow-lg)", display: "flex", alignItems: "center", gap: 10, fontSize: "0.82rem", fontWeight: 700, zIndex: 2, bottom: "25%", right: "-10px", animation: "float 3s 1.5s ease-in-out infinite" }}>
-                <div style={{ background: "var(--orange-light)", width: 32, height: 32, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>🍔</div>
-                <div><div style={{ fontWeight: 800 }}>Burger Bros</div><div style={{ fontSize: "0.72rem", color: "var(--text3)" }}>⭐ 4.6 · 18 min</div></div>
+            <div className="fade-up-2" style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "center" }}>
+              {/* Glowing background orb */}
+              <div style={{ position: "absolute", width: 420, height: 420, background: "radial-gradient(circle,rgba(244,132,95,0.2),rgba(230,57,70,0.1),transparent 70%)", borderRadius: "50%", animation: "float 4s ease-in-out infinite" }}></div>
+
+              {/* Image Slider */}
+              <div style={{ position: "relative", width: 420, height: 340 }}>
+                {heroImages.map((img, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: "var(--radius-xl)",
+                      overflow: "hidden",
+                      boxShadow: "0 24px 60px rgba(230,57,70,0.22)",
+                      transition: "opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1)",
+                      opacity: i === heroIdx ? 1 : 0,
+                      transform: i === heroIdx ? "scale(1) translateY(0)" : "scale(0.95) translateY(12px)",
+                      zIndex: i === heroIdx ? 2 : 1,
+                      pointerEvents: i === heroIdx ? "auto" : "none"
+                    }}
+                  >
+                    <img
+                      src={img.src}
+                      alt={img.label}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      onError={e => { e.target.src = `https://placehold.co/420x340/FFF5EE/E63946?text=${encodeURIComponent(img.label)}`; }}
+                    />
+                    {/* Gradient overlay */}
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)" }} />
+                    {/* Label */}
+                    <div style={{ position: "absolute", bottom: 18, left: 18, right: 18, zIndex: 3 }}>
+                      <div style={{ display: "inline-block", background: "var(--yellow)", color: "var(--dark)", fontSize: "0.7rem", fontWeight: 800, padding: "3px 10px", borderRadius: "var(--radius-full)", marginBottom: 6 }}>{img.tag}</div>
+                      <div style={{ color: "#fff", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "1.15rem", textShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>{img.label}</div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Floating badge top-right */}
+                <div style={{
+                  position: "absolute", top: -16, right: -16, zIndex: 10,
+                  background: "var(--red)", color: "#fff", borderRadius: "50%",
+                  width: 72, height: 72, display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  boxShadow: "0 8px 24px rgba(230,57,70,0.4)",
+                  animation: "float 3s ease-in-out infinite",
+                  fontSize: "0.65rem", fontWeight: 900, textAlign: "center", lineHeight: 1.2
+                }}>
+                  <span style={{ fontSize: "1.1rem" }}>⚡</span>
+                  30 MIN<br/>DELIVERY
+                </div>
+
+                {/* Dot indicators */}
+                <div style={{ position: "absolute", bottom: -28, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 10 }}>
+                  {heroImages.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setHeroIdx(i); clearInterval(heroTimer.current); }}
+                      style={{
+                        width: i === heroIdx ? 22 : 8,
+                        height: 8, borderRadius: 4, border: "none", cursor: "pointer",
+                        background: i === heroIdx ? "var(--red)" : "rgba(230,57,70,0.25)",
+                        transition: "all 0.4s ease", padding: 0
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -167,8 +259,12 @@ export default function HomePage({ onNav, cart, addresses = [], selectedAddrIdx 
             <button className="btn btn-ghost btn-sm" onClick={() => onNav("restaurants")}>See all 500+</button>
           </div>
           <div className="grid-auto fade-up-1">
-            {filteredRestaurants.length > 0 ? filteredRestaurants.map((r, i) => (
-              <div key={i} className="rest-card" onClick={() => onNav("menu", { restaurant: r.name })}>
+            {loading ? (
+              <div style={{ gridColumn: "1/-1", padding: 40, textAlign: "center", fontSize: "1.2rem", fontWeight: 700, color: "var(--text3)" }}>
+                <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 10 }}></i> Loading restaurants...
+              </div>
+            ) : filteredRestaurants.length > 0 ? filteredRestaurants.map((r, i) => (
+              <div key={i} className="rest-card" onClick={() => onNav("menu", { restaurant: r.name, location: r.location?.split(",")[0] })}>
                 <div className="rest-card-img">
                   <img src={r.img} onError={e => { e.target.src = "https://placehold.co/400x190/FFEBE0/E63946?text=🍕"; }} alt={r.name} />
                   {r.promo && <div className="rest-card-promo">{r.promo}</div>}
@@ -182,7 +278,7 @@ export default function HomePage({ onNav, cart, addresses = [], selectedAddrIdx 
                   <div className="rest-card-cuisine">{r.cuisine}</div>
                   <div className="rest-card-meta">
                     <span className="rest-meta-item"><i className="fa-solid fa-clock"></i> {r.time}</span>
-                    <span className="rest-meta-item"><i className="fa-solid fa-motorcycle"></i> {r.delivery}</span>
+                    <span className="rest-meta-item"><i className="fa-solid fa-location-dot"></i> {r.location?.split(",")[0] || "Lucknow"}</span>
                     <span className="rest-meta-item"><i className="fa-solid fa-indian-rupee-sign"></i> {r.cost}</span>
                   </div>
                 </div>

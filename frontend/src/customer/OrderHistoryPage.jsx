@@ -31,7 +31,7 @@ export default function OrderHistoryPage({ onNav, cart, newOrders = [], addresse
     const fetchOrders = async () => {
       setLoadingOrders(true);
       try {
-        const res = await fetch("http://localhost:5001/api/orders/myorders", {
+        const res = await fetch("/api/orders/myorders", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         const data = await res.json();
@@ -67,25 +67,7 @@ export default function OrderHistoryPage({ onNav, cart, newOrders = [], addresse
 
   const reorder = () => show("Items added to cart!", "success");
 
-  // Combine: live orders from DB + any local orders from this session + mock fallback
-  const mockFallback = !token ? [
-    {
-      id: "#BB2024118", rest: "Pizza Palace", date: "Today, 12:01 PM",
-      img: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=100",
-      items: "Margherita Pizza, Pepperoni Feast, Penne Arrabbiata",
-      status: "active", statusLabel: "Out for Delivery", badgeCls: "badge-orange",
-      total: "₹900", count: 3,
-    },
-    {
-      id: "#BB2024099", rest: "Burger Brothers", date: "Yesterday, 8:22 PM",
-      img: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100",
-      items: "Classic Double Smash Burger × 2, Cheesy Fries × 1, Chocolate Shake × 2",
-      status: "delivered", statusLabel: "✓ Delivered", badgeCls: "badge-green",
-      total: "₹748", count: 5,
-    },
-  ] : [];
-
-  const orders = [...newOrders, ...liveOrders, ...mockFallback];
+  const orders = [...newOrders, ...liveOrders];
   // Deduplicate by id
   const seen = new Set();
   const uniqueOrders = orders.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
@@ -97,7 +79,7 @@ export default function OrderHistoryPage({ onNav, cart, newOrders = [], addresse
 
   return (
     <div>
-      <SiteHeader cartCount={cart?.length || 0} onNav={onNav} currentAddress={currentAddress} />
+      <SiteHeader cartCount={cart?.length || 0} onNav={onNav} currentAddress={currentAddress} user={user} />
       <div className="container">
         <div className="breadcrumb" style={{ paddingTop: 20 }}>
           <a onClick={() => onNav("home")} style={{ cursor: "pointer" }}>Home</a><span className="sep">›</span>
@@ -150,7 +132,7 @@ export default function OrderHistoryPage({ onNav, cart, newOrders = [], addresse
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {order.status === "active" && (
-                      <button className="btn btn-primary btn-sm" onClick={() => onNav("tracking")}>
+                      <button className="btn btn-primary btn-sm" onClick={() => onNav("tracking", { order })}>
                         <i className="fa-solid fa-location-dot"></i> Track Order
                       </button>
                     )}

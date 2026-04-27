@@ -1,7 +1,9 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/db.js';
 import foodRoutes from './routes/foodRoutes.js';
@@ -10,10 +12,9 @@ import adminRoutes from './routes/adminRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 
+console.log('Google Client ID Loaded:', process.env.GOOGLE_CLIENT_ID ? 'YES' : 'NO');
 
-dotenv.config();
-
-connectDB();
+const dbConnected = await connectDB();
 
 const app = express();
 const server = http.createServer(app);
@@ -28,7 +29,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.send('API is running...');
+  res.send('BiteBolt API is running...');
 });
 
 app.use('/api/foods', foodRoutes);
@@ -37,63 +38,20 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
 
-
-const PORT = process.env.PORT || 5000;
-
-// Socket.io logic for live tracking simulation
+// Socket.io logic
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
-
-  let trackInterval;
-
-  socket.on('startTracking', (orderId) => {
-    console.log(`Started tracking order: ${orderId}`);
-    
-    // Lucknow Coordinates
-    // Hazratganj (Restaurant) -> Gomti Nagar (User)
-    const startPoint = { lat: 26.8467, lng: 80.9462 };
-    const endPoint = { lat: 26.8522, lng: 80.9994 };
-    
-    let progress = 15; // Start at 15% (e.g., packing)
-    
-    if (trackInterval) clearInterval(trackInterval);
-
-    trackInterval = setInterval(() => {
-      progress += 2.5; // Smooth increment
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(trackInterval);
-      }
-
-      // Calculate current position if dispatched (>60%)
-      let currentLat = startPoint.lat;
-      let currentLng = startPoint.lng;
-
-      if (progress > 60) {
-        const ratio = (progress - 60) / 40;
-        currentLat = startPoint.lat + (endPoint.lat - startPoint.lat) * ratio;
-        currentLng = startPoint.lng + (endPoint.lng - startPoint.lng) * ratio;
-      }
-
-      // Calculate ETA (roughly 15 mins to start, decrementing)
-      const eta = Math.max(1, Math.ceil(15 * (1 - progress / 100)));
-
-      socket.emit('locationUpdate', {
-        progress,
-        eta,
-        riderPos: [currentLat, currentLng],
-        restaurantPos: [startPoint.lat, startPoint.lng],
-        userPos: [endPoint.lat, endPoint.lng]
-      });
-    }, 2000); // Update every 2 seconds for smooth movement
+  console.log('User connected:', socket.id);
+  
+  socket.on('update-location', (data) => {
+    io.emit('location-update', data);
   });
 
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.id}`);
-    if (trackInterval) clearInterval(trackInterval);
+    console.log('User disconnected');
   });
 });
 
+const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });

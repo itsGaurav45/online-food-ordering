@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
 import { LoginPage, RegisterPage, ForgotPasswordPage } from "./auth/AuthPages";
 
@@ -15,13 +16,9 @@ import AdminPortal      from "./admin/AdminPortal";
 import RestaurantPortal from "./restaurant/RestaurantPortal";
 
 export default function App() {
-  const getInitialZone = () => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("page") || "login";
-  };
-  const [zone, setZone] = useState(getInitialZone);
-  const [navData, setNavData] = useState(null);
-  const [currentRestaurant, setCurrentRestaurant] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [cart, setCart] = useState([]);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddrIdx, setSelectedAddrIdx] = useState(0);
@@ -39,59 +36,29 @@ export default function App() {
     if (savedToken && savedUser) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
-      // If they were on login page, redirect to correct zone
-      const params = new URLSearchParams(window.location.search);
-      const currentPage = params.get("page") || "login";
-      if (currentPage === "login" || currentPage === "register") {
-        const parsedUser = JSON.parse(savedUser);
-        const dest = parsedUser.role === "admin" ? "admin" : parsedUser.role === "restaurant" ? "restaurant" : "home";
-        setZone(dest);
-        window.history.replaceState({ zone: dest }, "", `?page=${dest}`);
+      
+      const parsedUser = JSON.parse(savedUser);
+      // If they are on login/register, send them to their dashboard
+      if (location.pathname === "/login" || location.pathname === "/register" || location.pathname === "/") {
+        const dest = parsedUser.role === "admin" ? "/admin" : parsedUser.role === "restaurant" ? "/restaurant" : "/home";
+        navigate(dest, { replace: true });
       }
+    } else if (location.pathname !== "/login" && location.pathname !== "/register" && location.pathname !== "/forgot") {
+      navigate("/login", { replace: true });
     }
   }, []);
 
-  useEffect(() => {
-    if (!window.history.state) {
-      window.history.replaceState({ zone: zone, data: null }, "", window.location.search || `?page=${zone}`);
-    }
-
-    const handlePopState = (event) => {
-      if (event.state && event.state.zone) {
-        setZone(event.state.zone);
-        const data = event.state.data || null;
-        setNavData(data);
-        if (data && data.restaurant) setCurrentRestaurant(data.restaurant);
-      } else {
-        const params = new URLSearchParams(window.location.search);
-        setZone(params.get("page") || "login");
-        setNavData(null);
-      }
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [zone]);
-
-  const nav = (page, data = null) => {
-    window.history.pushState({ zone: page, data }, "", `?page=${page}`);
-    setZone(page);
-    setNavData(data);
-    if (data && data.restaurant) setCurrentRestaurant(data.restaurant);
-  };
-
   const handleLogin = (role) => {
-    // Refresh user from localStorage after login
     const savedUser = localStorage.getItem("user");
     const savedToken = localStorage.getItem("token");
     if (savedUser) setUser(JSON.parse(savedUser));
     if (savedToken) setToken(savedToken);
 
-    let newZone = "home";
-    if (role === "admin") newZone = "admin";
-    else if (role === "restaurant") newZone = "restaurant";
+    let dest = "/home";
+    if (role === "admin") dest = "/admin";
+    else if (role === "restaurant") dest = "/restaurant";
 
-    window.history.pushState({ zone: newZone }, "", `?page=${newZone}`);
-    setZone(newZone);
+    navigate(dest);
   };
 
   const handleSignOut = () => {
@@ -100,8 +67,7 @@ export default function App() {
     setUser(null);
     setToken(null);
     setCart([]);
-    window.history.pushState({ zone: "login" }, "", `?page=login`);
-    setZone("login");
+    navigate("/login");
   };
 
   const completeOrder = (newOrder) => {
@@ -110,31 +76,55 @@ export default function App() {
       setOrders(prev => [newOrder, ...prev]);
     }
     setCart([]);
-    nav("tracking");
+    navigate("/tracking", { state: { order: newOrder } });
+  };
+
+  // Helper for components that still use the old onNav prop
+  const onNav = (path, data = null) => {
+    // Map old page names to new paths if needed
+    const pathMap = {
+      "login": "/login",
+      "register": "/register",
+      "forgot": "/forgot",
+      "home": "/home",
+      "restaurants": "/restaurants",
+      "menu": "/menu",
+      "cart": "/cart",
+      "checkout": "/checkout",
+      "tracking": "/tracking",
+      "orders": "/orders",
+      "profile": "/profile",
+      "admin": "/admin",
+      "restaurant": "/restaurant"
+    };
+    const target = pathMap[path] || `/${path}`;
+    navigate(target, { state: data });
   };
 
   return (
-    <>
+    <Routes>
       {/* ── AUTH ── */}
-      {zone === "login"    && <LoginPage    onLogin={handleLogin} onNav={nav} />}
-      {zone === "register" && <RegisterPage onLogin={handleLogin} onNav={nav} />}
-      {zone === "forgot"   && <ForgotPasswordPage onNav={nav} />}
+      <Route path="/login"    element={<LoginPage    onLogin={handleLogin} onNav={onNav} />} />
+      <Route path="/register" element={<RegisterPage onLogin={handleLogin} onNav={onNav} />} />
+      <Route path="/forgot"   element={<ForgotPasswordPage onNav={onNav} />} />
 
       {/* ── CUSTOMER PAGES ── */}
-      {zone === "home"        && <HomePage         onNav={nav} cart={cart} addresses={addresses} selectedAddrIdx={selectedAddrIdx} user={user} />}
-      {zone === "restaurants" && <RestaurantsPage  onNav={nav} cart={cart} addresses={addresses} selectedAddrIdx={selectedAddrIdx} user={user} />}
-      {zone === "menu"        && <MenuPage         onNav={nav} cart={cart} setCart={setCart} addresses={addresses} selectedAddrIdx={selectedAddrIdx} navData={navData} user={user} />}
-      {zone === "cart"        && <CartPage         onNav={nav} cart={cart} setCart={setCart} addresses={addresses} setAddresses={setAddresses} selectedAddrIdx={selectedAddrIdx} setSelectedAddrIdx={setSelectedAddrIdx} user={user} />}
-      {zone === "checkout"    && <CheckoutPage     onNav={nav} cart={cart} addresses={addresses} setAddresses={setAddresses} setCart={setCart} selectedAddrIdx={selectedAddrIdx} setSelectedAddrIdx={setSelectedAddrIdx} onComplete={completeOrder} user={user} token={token} currentRestaurant={currentRestaurant} />}
-      {zone === "tracking"    && <TrackingPage     onNav={nav} addresses={addresses} selectedAddrIdx={selectedAddrIdx} order={lastOrder} user={user} token={token} />}
-      {zone === "orders"      && <OrderHistoryPage onNav={nav} cart={cart} newOrders={orders} addresses={addresses} selectedAddrIdx={selectedAddrIdx} user={user} token={token} />}
-      {zone === "profile"     && <ProfilePage      onNav={nav} cart={cart} addresses={addresses} setAddresses={setAddresses} selectedAddrIdx={selectedAddrIdx} setSelectedAddrIdx={setSelectedAddrIdx} user={user} onSignOut={handleSignOut} />}
+      <Route path="/home"        element={<HomePage         onNav={onNav} cart={cart} addresses={addresses} selectedAddrIdx={selectedAddrIdx} user={user} />} />
+      <Route path="/restaurants" element={<RestaurantsPage  onNav={onNav} cart={cart} addresses={addresses} selectedAddrIdx={selectedAddrIdx} user={user} />} />
+      <Route path="/menu"        element={<MenuPage         onNav={onNav} cart={cart} setCart={setCart} addresses={addresses} selectedAddrIdx={selectedAddrIdx} navData={location.state} user={user} />} />
+      <Route path="/cart"        element={<CartPage         onNav={onNav} cart={cart} setCart={setCart} addresses={addresses} setAddresses={setAddresses} selectedAddrIdx={selectedAddrIdx} setSelectedAddrIdx={setSelectedAddrIdx} user={user} />} />
+      <Route path="/checkout"    element={<CheckoutPage     onNav={onNav} cart={cart} addresses={addresses} setAddresses={setAddresses} setCart={setCart} selectedAddrIdx={selectedAddrIdx} setSelectedAddrIdx={setSelectedAddrIdx} onComplete={completeOrder} user={user} token={token} currentRestaurant={location.state?.restaurant} />} />
+      <Route path="/tracking"    element={<TrackingPage     onNav={onNav} addresses={addresses} selectedAddrIdx={selectedAddrIdx} order={location.state?.order || lastOrder} user={user} token={token} />} />
+      <Route path="/orders"      element={<OrderHistoryPage onNav={onNav} cart={cart} newOrders={orders} addresses={addresses} selectedAddrIdx={selectedAddrIdx} user={user} token={token} />} />
+      <Route path="/profile"     element={<ProfilePage      onNav={onNav} cart={cart} addresses={addresses} setAddresses={setAddresses} selectedAddrIdx={selectedAddrIdx} setSelectedAddrIdx={setSelectedAddrIdx} user={user} onSignOut={handleSignOut} />} />
 
-      {/* ── ADMIN PORTAL ── */}
-      {zone === "admin"       && <AdminPortal      onSignOut={handleSignOut} user={user} token={token} />}
+      {/* ── PORTALS ── */}
+      <Route path="/admin"       element={<AdminPortal      onSignOut={handleSignOut} user={user} token={token} />} />
+      <Route path="/restaurant"  element={<RestaurantPortal onSignOut={handleSignOut} user={user} token={token} />} />
 
-      {/* ── RESTAURANT PORTAL ── */}
-      {zone === "restaurant"  && <RestaurantPortal onSignOut={handleSignOut} user={user} token={token} />}
-    </>
+      {/* ── DEFAULT ── */}
+      <Route path="/" element={<Navigate to={user ? (user.role === 'admin' ? '/admin' : user.role === 'restaurant' ? '/restaurant' : '/home') : '/login'} replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

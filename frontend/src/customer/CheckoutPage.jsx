@@ -12,7 +12,10 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
   const [payMethod,    setPayMethod]       = useState("upi"); // selectPay()
   const [selectedUPI,  setSelectedUPI]     = useState("gpay"); // selectUPI()
   const [orderPlaced,  setOrderPlaced]     = useState(false);
+  const [showRazorpay, setShowRazorpay] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('idle'); // idle, processing, success
   const [placedOrderId, setPlacedOrderId] = useState("");
+  const [placedOrderObj, setPlacedOrderObj] = useState(null);
   const [placing, setPlacing]             = useState(false);
   const { toasts, show } = useToast();
 
@@ -26,10 +29,10 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
   ];
 
   const payOptions = [
-    { id: "upi", icon: "📱", label: "UPI Payment", sub: "Google Pay, PhonePe, Paytm, BHIM", badge: { text: "Recommended", cls: "badge-green" } },
+    { id: "upi", icon: "📱", label: "UPI Payment", sub: "Google Pay, PhonePe, Paytm, BHIM" },
     { id: "card", icon: "💳", label: "Credit / Debit Card", sub: "Visa, Mastercard, RuPay" },
     { id: "netbanking", icon: "🏦", label: "Net Banking", sub: "All major banks" },
-    { id: "cod", icon: "💵", label: "Cash on Delivery", sub: "Pay when your order arrives" },
+    { id: "cod", icon: "💵", label: "Cash on Delivery", sub: "Pay when your order arrives", badge: { text: "Recommended", cls: "badge-green" } },
   ];
 
   const upiApps = [
@@ -39,36 +42,36 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
     { id: "bhim", label: "🟠 BHIM" },
   ];
 
-  // placeOrder() — real API call
   const placeOrder = async () => {
+    if (payMethod === 'upi' || payMethod === 'card') {
+      setShowRazorpay(true);
+      setPaymentStatus('processing');
+      // Simulate Razorpay processing
+      setTimeout(() => {
+        setPaymentStatus('success');
+        setTimeout(() => {
+          setShowRazorpay(false);
+          finalizeOrder();
+        }, 2000);
+      }, 2500);
+      return;
+    }
+    finalizeOrder();
+  };
+
+  const finalizeOrder = async () => {
     if (!cart || cart.length === 0) { show("Your cart is empty!", "error"); return; }
     if (!addresses || addresses.length === 0) { show("Please add a delivery address!", "error"); return; }
     setPlacing(true);
     try {
       const restaurantId = cart[0]?.restaurantId;
-      if (!restaurantId) {
-        // Fallback: no restaurantId yet, create a local order object
-        const fallbackOrder = {
-          id: "#BB" + Math.floor(100000 + Math.random() * 900000),
-          rest: currentRestaurant || "Restaurant",
-          date: "Just now",
-          items: cart.map(i => i.name).join(", "),
-          itemsList: [...cart],
-          status: "active", statusLabel: "Out for Delivery", badgeCls: "badge-orange",
-          total: `₹${total}`, count: cart.reduce((a, i) => a + i.qty, 0),
-          address: addresses[selectedAddrIdx]?.addr
-        };
-        setPlacedOrderId(fallbackOrder.id);
-        setOrderPlaced(true);
-        onComplete(fallbackOrder);
-        setPlacing(false);
-        return;
-      }
-      const res = await fetch("http://localhost:5001/api/orders", {
+
+      const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
           restaurant: restaurantId,
+          restaurantName: cart[0]?.restaurant || "Restaurant",
           items: cart.map(i => `${i.name} × ${i.qty}`).join(", "),
           itemsList: cart,
           amount: `₹${total}`,
@@ -79,14 +82,17 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to place order");
       const newOrder = {
-        id: data.orderId, _id: data._id, rest: currentRestaurant || "Restaurant",
+        id: data.orderId, _id: data._id, rest: cart[0]?.restaurant || "Restaurant",
         date: "Just now", items: data.items, itemsList: cart,
         status: "active", statusLabel: "Out for Delivery", badgeCls: "badge-orange",
         total: data.amount, count: cart.reduce((a, i) => a + i.qty, 0), address: data.address
       };
       setPlacedOrderId(data.orderId);
+      setPlacedOrderObj(newOrder);
       setOrderPlaced(true);
-      onComplete(newOrder);
+      if (clearCart) clearCart();
+      // Don't call onComplete yet, wait for user to click "Track Order"
+      // onComplete(newOrder); 
     } catch (err) {
       show(err.message, "error");
     } finally {
@@ -110,6 +116,10 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
         <div className="site-logo" style={{ cursor: "pointer" }} onClick={() => onNav("home")}><i className="fa-solid fa-bolt"></i>Bite<span>Bolt</span></div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "var(--text3)" }}>
           <i className="fa-solid fa-location-dot" style={{ color: "var(--green)" }}></i> {currentAddress}
+          <div className="header-user" onClick={() => onNav("profile")} style={{ cursor: "pointer", marginLeft: 16 }}>
+            <div className="header-avatar" style={{ background: user?.avatarBg }}>{user?.initials || "U"}</div>
+            <span style={{ fontWeight: 700, color: "var(--text)" }}>{user?.name?.split(" ")[0] || "Me"}</span>
+          </div>
         </div>
       </header>
 
@@ -190,7 +200,7 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
                   <div style={{ marginTop: 12, fontSize: "0.82rem", color: "var(--text3)" }}>Or enter UPI ID manually:</div>
                   <div className="input-wrap" style={{ marginTop: 8 }}>
                     <i className="fa-solid fa-at input-icon"></i>
-                    <input type="text" className="form-input" placeholder="yourname@upi" />
+                    <input type="text" className="form-input" placeholder="yourname@upi" defaultValue="gaurav@okaxis" />
                   </div>
                   <div style={{ marginTop: 16, display: "flex", gap: 20, alignItems: "center", background: "#fff", padding: 16, borderRadius: "var(--radius)", border: "1px dashed var(--border)" }}>
                     <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=bitebolt@okaxis&pn=BiteBolt" alt="UPI QR" style={{ width: 90, height: 90, borderRadius: 4 }} />
@@ -198,6 +208,50 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
                       <div style={{ fontWeight: 800, marginBottom: 4 }}>Scan to Pay</div>
                       <div style={{ fontSize: "0.8rem", color: "var(--text3)" }}>Use any UPI app to scan and pay seamlessly.</div>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Card Section */}
+              {payMethod === "card" && (
+                <div style={{ background: "var(--bg2)", borderRadius: "var(--radius)", padding: 20, marginBottom: 10, animation: "fadeIn 0.3s ease" }}>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 700, marginBottom: 16, color: "var(--text)" }}>Enter Card Details:</div>
+                  
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                    <label className="form-label">Card Number</label>
+                    <div className="input-wrap">
+                      <i className="fa-solid fa-credit-card input-icon"></i>
+                      <input type="text" className="form-input" placeholder="4532 0123 4567 8901" defaultValue="4532 0123 4567 8901" />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+                    <div className="form-group">
+                      <label className="form-label">Expiry Date</label>
+                      <div className="input-wrap">
+                        <i className="fa-solid fa-calendar input-icon"></i>
+                        <input type="text" className="form-input" placeholder="MM/YY" defaultValue="09/27" />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">CVV</label>
+                      <div className="input-wrap">
+                        <i className="fa-solid fa-lock input-icon"></i>
+                        <input type="password" className="form-input" placeholder="123" defaultValue="753" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 4 }}>
+                    <label className="form-label">Name on Card</label>
+                    <div className="input-wrap">
+                      <i className="fa-solid fa-user input-icon"></i>
+                      <input type="text" className="form-input" placeholder="Aman Kumar" defaultValue="Aman Kumar" />
+                    </div>
+                  </div>
+                  
+                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", color: "var(--text3)" }}>
+                    <i className="fa-solid fa-shield-check" style={{ color: "var(--green)" }}></i> Your card details are encrypted and 100% secure.
                   </div>
                 </div>
               )}
@@ -249,11 +303,62 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
         </div>
       </div>
 
+      {/* DUMMY RAZORPAY GATEWAY */}
+      {showRazorpay && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ width: "100%", maxWidth: 400, background: "#fff", borderRadius: 16, overflow: "hidden", animation: "scaleUp 0.3s ease-out" }}>
+            <div style={{ background: "#2B3440", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", color: "#fff" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 32, height: 32, background: "#fff", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <img src="https://razorpay.com/favicon.png" alt="RZ" style={{ width: 20 }} />
+                </div>
+                <div style={{ fontWeight: 800 }}>Razorpay Secure</div>
+              </div>
+              <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>{payMethod === 'card' ? 'Card' : 'UPI'} · ₹{total}</div>
+            </div>
+            
+            <div style={{ padding: 40, textAlign: "center" }}>
+              {paymentStatus === 'processing' ? (
+                <>
+                  <div className="payment-loader" style={{ width: 60, height: 60, border: "4px solid #f3f3f3", borderTop: "4px solid #3395FF", borderRadius: "50%", margin: "0 auto 20px", animation: "spin 1s linear infinite" }}></div>
+                  <h3 style={{ marginBottom: 10 }}>Processing Payment</h3>
+                  <p style={{ color: "var(--text3)", fontSize: "0.9rem" }}>Please do not close this window or press back.</p>
+                  <div style={{ marginTop: 24, fontSize: "0.75rem", color: "#3395FF", fontWeight: 700 }}>
+                    <i className="fa-solid fa-lock"></i> Secured by 256-bit encryption
+                  </div>
+                </>
+              ) : (
+                <div style={{ animation: "popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)" }}>
+                  <div style={{ width: 80, height: 80, background: "#E8F5E9", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+                    <i className="fa-solid fa-check" style={{ fontSize: "2.5rem", color: "#2E7D32" }}></i>
+                  </div>
+                  <h2 style={{ color: "#2E7D32", marginBottom: 6 }}>Payment Success!</h2>
+                  <p style={{ color: "var(--text3)" }}>Transaction ID: #RZP{Math.floor(Math.random()*9000000)}</p>
+                </div>
+              )}
+            </div>
+            
+            <div style={{ padding: "0 20px 20px" }}>
+              <div style={{ height: 4, background: "#f0f0f0", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: "#3395FF", width: paymentStatus === 'processing' ? '60%' : '100%', transition: "width 2s ease" }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS for animations */}
+      <style>{`
+        @keyframes scaleUp { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      `}</style>
+
       {/* ORDER CONFIRMATION MODAL — placeOrder() */}
       <Modal open={orderPlaced} onClose={() => { setOrderPlaced(false); onNav("tracking"); }} title=""
         footer={
           <>
-            <button className="btn btn-primary btn-full btn-lg" onClick={onComplete}>Track Your Order <i className="fa-solid fa-location-dot"></i></button>
+            <button className="btn btn-primary btn-full btn-lg" onClick={() => onComplete(placedOrderObj)}>Track Your Order <i className="fa-solid fa-location-dot"></i></button>
             <button className="btn btn-secondary btn-full" style={{ marginTop: 10 }} onClick={() => { setOrderPlaced(false); onNav("home"); }}>Back to Home</button>
           </>
         }>
@@ -264,7 +369,7 @@ export default function CheckoutPage({ onNav, cart, addresses, setAddresses, sel
           <p style={{ color: "var(--text3)", fontSize: "0.85rem", marginBottom: 24 }}>Estimated delivery: <strong style={{ color: "var(--red)" }}>22-28 minutes</strong></p>
           <div style={{ background: "var(--bg2)", borderRadius: "var(--radius)", padding: 16 }}>
             <div style={{ fontSize: "0.82rem", color: "var(--text3)", marginBottom: 4 }}>Order from</div>
-            <div style={{ fontWeight: 800 }}>Pizza Palace</div>
+            <div style={{ fontWeight: 800 }}>{cart[0]?.restaurant || "Restaurant"}</div>
             <div style={{ fontSize: "0.82rem", color: "var(--text3)", marginTop: 8 }}>Delivering to: {addresses[selectedAddrIdx]?.addr}</div>
           </div>
         </div>

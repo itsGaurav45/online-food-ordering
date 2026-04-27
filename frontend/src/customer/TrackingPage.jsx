@@ -14,36 +14,63 @@ L.Icon.Default.mergeOptions({
 
 const riderIcon = new L.DivIcon({
   className: 'custom-div-icon',
-  html: "<div class='rider-marker' style='background:var(--red); color:#fff; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 15px rgba(230,57,70,0.5); border:2px solid #fff; font-size:18px;'><i class='fa-solid fa-motorcycle'></i></div>",
-  iconSize: [36, 36],
-  iconAnchor: [18, 18]
+  html: "<div class='rider-marker' style='background:#1A1A2E; color:#fff; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px rgba(0,0,0,0.3); border:2px solid #fff; font-size:18px; transform-origin:center;'><i class='fa-solid fa-motorcycle'></i></div>",
+  iconSize: [38, 38],
+  iconAnchor: [19, 19]
 });
 
 const restaurantIcon = new L.DivIcon({
   className: 'custom-div-icon',
-  html: "<div style='background:var(--dark); color:#fff; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid #fff; font-size:14px;'><i class='fa-solid fa-shop'></i></div>",
+  html: "<div style='background:#FFD700; color:#000; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 4px 10px rgba(0,0,0,0.2); font-size:14px;'><i class='fa-solid fa-store'></i></div>",
   iconSize: [32, 32],
   iconAnchor: [16, 16]
 });
 
 const homeIcon = new L.DivIcon({
   className: 'custom-div-icon',
-  html: "<div style='background:var(--green); color:#fff; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; border:2px solid #fff; font-size:14px;'><i class='fa-solid fa-house-user'></i></div>",
+  html: "<div style='background:var(--green); color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 4px 10px rgba(0,0,0,0.2); font-size:14px;'><i class='fa-solid fa-house-user'></i></div>",
   iconSize: [32, 32],
   iconAnchor: [16, 16]
 });
 
-export default function TrackingPage({ onNav, addresses = [], selectedAddrIdx = 0, order }) {
-  const currentAddr = addresses[selectedAddrIdx]?.addr || "Vibhuti Khand, Gomti Nagar, Lucknow — 226010";
-  const isLucknow = currentAddr.toLowerCase().includes("lucknow");
+const RESTAURANT_LOCATIONS = {
+  "pizza palace": { pos: [26.8467, 80.9462], cityHint: "lucknow" },      // Hazratganj
+  "la pino": { pos: [26.8500, 81.0200], cityHint: "lucknow" },           // Gomti Nagar
+  "burger point": { pos: [26.9159, 80.9462], cityHint: "lucknow" },      // Aliganj
+  "mad over burgers": { pos: [26.8714, 81.0000], cityHint: "lucknow" },  // Indira Nagar
+  "tunday kababi": { pos: [26.8526, 80.9316], cityHint: "lucknow" },     // Lalbagh
+  "dastarkhwan": { pos: [26.8526, 80.9316], cityHint: "lucknow" },       // Lalbagh
+  "biryani express": { pos: [26.8502, 80.9128], cityHint: "lucknow" },   // Aminabad
+  "wok & roll": { pos: [26.8714, 81.0000], cityHint: "lucknow" },        // Indira Nagar
+  "chung fa": { pos: [26.8758, 80.9484], cityHint: "lucknow" },          // Mahanagar
+  "sushi house": { pos: [26.8571, 81.0080], cityHint: "lucknow" },       // Gomti Nagar
+};
+
+export default function TrackingPage({ onNav, addresses = [], selectedAddrIdx = 0, order, user, token }) {
+  const currentAddr = order?.address || addresses[selectedAddrIdx]?.addr || "Lucknow";
+  const addrLower = currentAddr.toLowerCase();
+  const isLucknow = addrLower.includes("lucknow");
+  const restLower = (order?.rest || "").toLowerCase();
+  const restKey = Object.keys(RESTAURANT_LOCATIONS).find(k => restLower.includes(k));
+  const restMeta = restKey ? RESTAURANT_LOCATIONS[restKey] : null;
 
   const [eta, setEta] = useState(15);
   const [progress, setProgress] = useState(15);
-  const [riderPos, setRiderPos] = useState(isLucknow ? [26.8500, 80.9300] : [28.6000, 77.2167]);
-  const [userPos, setUserPos] = useState(isLucknow ? [26.8522, 80.9994] : [28.5244, 77.2104]);
+  const [riderPos, setRiderPos] = useState([26.8500, 80.9300]);
+  const [userPos, setUserPos] = useState(() => {
+    const al = (order?.address || currentAddr).toLowerCase();
+    if (al.includes("bbd university")) return [26.8890, 81.0630];
+    if (al.includes("gomti nagar")) return [26.8522, 80.9994];
+    if (al.includes("hazratganj")) return [26.8467, 80.9462];
+    if (al.includes("aliganj")) return [26.9159, 80.9462];
+    if (al.includes("indira nagar")) return [26.8714, 81.0000];
+    return [26.8500, 80.9500]; // Lucknow center fallback
+  });
   const { toasts, show } = useToast();
 
-  const [restaurantPos, setRestaurantPos] = useState(isLucknow ? [26.8467, 80.9462] : [28.6315, 77.2167]);
+  const [restaurantPos, setRestaurantPos] = useState(
+    restMeta?.pos || [26.8467, 80.9462]
+  );
   const riders = [
     { name: "Rahul Sharma", initial: "R", phone: "+91 98765 43210", vehicle: "Royal Enfield Thunderbird · UP-32-AB-1234", rating: "4.9", deliveries: "2,341" },
     { name: "Amit Kumar", initial: "A", phone: "+91 87654 32109", vehicle: "Honda Activa · UP-32-CD-5678", rating: "4.7", deliveries: "1,820" },
@@ -52,34 +79,84 @@ export default function TrackingPage({ onNav, addresses = [], selectedAddrIdx = 
   ];
   const [rider] = useState(() => riders[Math.floor(Math.random() * riders.length)]);
 
-  // Socket.io connection for live tracking
+  // Animation state for the rider
+  const [animPercent, setAnimPercent] = useState(0);
+
   useEffect(() => {
-    const socket = io("http://localhost:5001");
+    if (progress < 70) {
+      setRiderPos(restaurantPos);
+      setAnimPercent(0);
+      return;
+    }
+    if (progress >= 100) {
+      setRiderPos(userPos);
+      setAnimPercent(1);
+      return;
+    }
 
-    socket.on("connect", () => {
-      console.log("Connected to tracking server");
-      socket.emit("startTracking", order?.id || "BB12345");
-    });
+    // Start slow animation (taking ~45s for the full trip in demo)
+    const duration = 45000; 
+    const start = Date.now();
 
-    socket.on("locationUpdate", (data) => {
-      setProgress(data.progress);
-      setEta(data.eta);
-      setRiderPos(data.riderPos);
-      setRestaurantPos(data.restaurantPos);
-      setUserPos(data.userPos);
-    });
+    const frame = () => {
+      const now = Date.now();
+      const p = Math.min((now - start) / duration, 1);
+      setAnimPercent(p);
+      
+      const lat = restaurantPos[0] + (userPos[0] - restaurantPos[0]) * p;
+      const lng = restaurantPos[1] + (userPos[1] - restaurantPos[1]) * p;
+      setRiderPos([lat, lng]);
 
-    return () => {
-      socket.disconnect();
+      if (p < 1) requestAnimationFrame(frame);
     };
-  }, [order?.id]);
+
+    const anim = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(anim);
+  }, [progress, restaurantPos, userPos]);
+
+  // Real-time DB Polling for Order Status
+  useEffect(() => {
+    if (!order?._id || !token) return;
+
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(`/api/orders/${order._id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const s = data.status.toLowerCase();
+          
+          if (s === 'new') setProgress(15);
+          else if (s === 'preparing') setProgress(40);
+          else if (s === 'delivering' || s === 'dispatched') {
+             setProgress(70);
+             // Fake a countdown based on animation percent
+             setEta(Math.max(1, Math.round(8 * (1 - animPercent))));
+          }
+          else if (s === 'delivered') {
+             setProgress(100);
+             setEta(0);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching order status:", err);
+      }
+    };
+
+    // Fetch immediately and then every 2 seconds
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 2000);
+
+    return () => clearInterval(interval);
+  }, [order?._id, token, animPercent]);
 
   const steps = [
     { icon: <i className="fa-solid fa-check" style={{ color: "#fff", fontSize: 16 }}></i>, label: "Order Placed", time: "Just now", state: "done" },
     { icon: progress > 30 ? <i className="fa-solid fa-check" style={{ color: "#fff", fontSize: 16 }}></i> : "⏳", label: "Preparing", time: progress > 30 ? "Done" : "In Progress", state: progress > 30 ? "done" : "active" },
     { icon: progress > 50 ? <i className="fa-solid fa-check" style={{ color: "#fff", fontSize: 16 }}></i> : "📦", label: "Packing", time: progress > 50 ? "Done" : progress > 30 ? "Soon" : "", state: progress > 50 ? "done" : progress > 30 ? "active" : "" },
     { icon: progress > 70 ? <i className="fa-solid fa-check" style={{ color: "#fff", fontSize: 16 }}></i> : "🛵", label: "Dispatched", time: progress > 70 ? "Done" : progress > 50 ? "Soon" : "", state: progress > 70 ? "done" : progress > 50 ? "active" : "" },
-    { icon: "🏠", label: "Arriving", time: "~" + eta + " mins", state: progress > 70 ? "active" : "" },
+    { icon: "📍", label: "Arriving", time: "~" + eta + " mins", state: progress > 70 ? "active" : "" },
   ];
 
   return (
@@ -92,7 +169,7 @@ export default function TrackingPage({ onNav, addresses = [], selectedAddrIdx = 
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={() => onNav("orders")}>My Orders</button>
-          <div className="header-user" onClick={() => onNav("profile")} style={{ cursor: "pointer" }}><div className="header-avatar">A</div>Arjun</div>
+          <div className="header-user" onClick={() => onNav("profile")} style={{ cursor: "pointer" }}><div className="header-avatar" style={{ background: user?.avatarBg }}>{user?.initials || "U"}</div>{user?.name?.split(" ")[0] || "Me"}</div>
         </div>
       </header>
 
@@ -140,11 +217,14 @@ export default function TrackingPage({ onNav, addresses = [], selectedAddrIdx = 
               <Marker position={restaurantPos} icon={restaurantIcon}>
                 <Popup>{order?.rest || "Restaurant"}</Popup>
               </Marker>
-              <Marker position={userPos} icon={homeIcon}>
-                <Popup>Your Location (Home)</Popup>
-              </Marker>
+              
+              {/* Animated Rider */}
               <Marker position={riderPos} icon={riderIcon}>
-                <Popup>{rider.name} is here!</Popup>
+                <Popup>{rider.name} is on the way!</Popup>
+              </Marker>
+
+              <Marker position={userPos} icon={homeIcon}>
+                <Popup>Your Location: {currentAddr.split(",")[0]}</Popup>
               </Marker>
             </MapContainer>
           </div>
@@ -218,7 +298,7 @@ export default function TrackingPage({ onNav, addresses = [], selectedAddrIdx = 
           {/* ORDER ITEMS */}
           <div style={{ background: "var(--card)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden" }} className="fade-up-4">
             <div style={{ padding: "14px 20px", background: "var(--bg2)", borderBottom: "1px solid var(--border)", fontFamily: "var(--font-display)", fontSize: "1rem", fontWeight: 900 }}>Your Order</div>
-            {(order?.itemsList || [["🍕 Margherita Pizza × 1", "₹299"], ["🍕 Pepperoni Feast × 1", "₹449"], ["🍝 Penne Arrabbiata × 1", "₹249"]]).map((item, index) => {
+            {(order?.itemsList || (order?.items ? order.items.split(", ").map(s => [s, ""]) : [])).map((item, index) => {
               const name = Array.isArray(item) ? item[0] : `🍽️ ${item.name} × ${item.qty}`;
               const priceLabel = Array.isArray(item) ? item[1] : `₹${item.price * item.qty}`;
               return (
@@ -228,7 +308,7 @@ export default function TrackingPage({ onNav, addresses = [], selectedAddrIdx = 
               );
             })}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 20px", background: "var(--bg2)" }}>
-              <span style={{ fontWeight: 900 }}>Total Paid</span><span style={{ fontWeight: 900, color: "var(--red)" }}>{order?.total || "₹900"}</span>
+              <span style={{ fontWeight: 900 }}>Total Paid</span><span style={{ fontWeight: 900, color: "var(--red)" }}>{order?.total || order?.amount || "₹0"}</span>
             </div>
           </div>
 

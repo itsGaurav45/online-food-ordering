@@ -1,4 +1,4 @@
-import { useState , useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 
 
@@ -45,16 +45,57 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = 480 }
 }
 
 /* ── Site Header (Customer) ───────────────────────────── */
-export function SiteHeader({ cartCount = 3, onNav, page, currentAddress }) {
+export function SiteHeader({ cartCount = 3, onNav, page, currentAddress, user }) {
+  const initials = user?.initials || (user?.name ? user.name.charAt(0).toUpperCase() : "U");
+  const firstName = user?.name?.split(" ")[0] || "Me";
+
+  const [liveLocation, setLiveLocation] = useState(null);
+  const [isTracking, setIsTracking] = useState(false);
+
+  useEffect(() => {
+    let watchId;
+    if ("geolocation" in navigator) {
+      setIsTracking(true);
+      watchId = navigator.geolocation.watchPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+            const data = await response.json();
+            if (data && data.display_name) {
+               const addr = data.address;
+               const shortAddr = [addr.suburb || addr.neighbourhood || addr.road, addr.city || addr.town || addr.village || addr.state].filter(Boolean).join(", ");
+               setLiveLocation(shortAddr || data.display_name.split(",").slice(0, 2).join(", "));
+            }
+          } catch (error) {
+            console.error("Error fetching location", error);
+          }
+        },
+        (error) => {
+          console.error("Error getting location", error);
+          setIsTracking(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, []);
+
+  const displayAddress = liveLocation ? liveLocation : currentAddress || "Select Address";
+
   return (
     <header className="site-header">
       <div className="site-logo" style={{ cursor: "pointer" }} onClick={() => onNav("home")}>
         <i className="fa-solid fa-bolt"></i>Bite<span>Bolt</span>
       </div>
-      <div className="header-location">
+      <div className="header-location" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <i className="fa-solid fa-location-dot"></i>
-        {currentAddress || "Select Address"}
-        <i className="fa-solid fa-chevron-down" style={{ fontSize: 10, color: "var(--text3)" }}></i>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", lineHeight: "1.2" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "200px" }}>{displayAddress}</span>
+        </div>
+        <i className="fa-solid fa-chevron-down" style={{ fontSize: 10, color: "var(--text3)", alignSelf: 'center' }}></i>
       </div>
       <div className="header-search">
         <div className="header-search-inner">
@@ -71,7 +112,7 @@ export function SiteHeader({ cartCount = 3, onNav, page, currentAddress }) {
           <i className="fa-regular fa-clock"></i>
         </div>
         <div className="header-user" onClick={() => onNav("profile")} style={{ cursor: "pointer" }}>
-          <div className="header-avatar">A</div>Arjun
+          <div className="header-avatar" style={{ background: user?.avatarBg || undefined }}>{initials}</div>{firstName}
         </div>
       </div>
     </header>
@@ -118,7 +159,7 @@ export function SiteFooter({ onNav }) {
           </div>
         </div>
         <div className="footer-bottom">
-          <span>© 2024 BiteBolt. All rights reserved.</span>
+          <span>© 2026 BiteBolt. All rights reserved.</span>
           <span>Made with ❤️ in India</span>
         </div>
       </div>

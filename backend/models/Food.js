@@ -20,6 +20,10 @@ const foodSchema = new mongoose.Schema({
   description: {
     type: String,
     required: true
+  },
+  restaurant: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Restaurant'
   }
 }, {
   timestamps: true

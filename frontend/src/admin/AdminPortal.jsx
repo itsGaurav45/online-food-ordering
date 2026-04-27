@@ -71,10 +71,10 @@ function AdminDashboard({ onNav, pending, onAction, showToast, stats }) {
 
       {/* Stat Cards */}
       <div className="grid-4 mb-24">
-        <StatCard color="red"    icon="fa-solid fa-users"           num={stats.totalUsers}  label="Total Users"        change="+142 this week" />
-        <StatCard color="orange" icon="fa-solid fa-store"            num="512"    label="Restaurants"        change={`${stats.pendingRestaurants} pending approval`} />
-        <StatCard color="green"  icon="fa-solid fa-bag-shopping"     num={stats.totalOrders}   label="Total Orders"       change="+3,241 today" />
-        <StatCard color="teal"   icon="fa-solid fa-indian-rupee-sign" num={stats.revenue} label="Monthly Revenue"    change="+22% vs last month" />
+        <StatCard color="red"    icon="fa-solid fa-users"           num={stats.totalUsers}        label="Total Users"        change="+142 this week" />
+        <StatCard color="orange" icon="fa-solid fa-store"            num={stats.totalRestaurants || 0}  label="Restaurants"        change={`${stats.pendingRestaurants} pending approval`} />
+        <StatCard color="green"  icon="fa-solid fa-bag-shopping"     num={stats.totalOrders}       label="Total Orders"       change="+3,241 today" />
+        <StatCard color="teal"   icon="fa-solid fa-indian-rupee-sign" num={stats.revenue}           label="Monthly Revenue"    change="+22% vs last month" />
       </div>
 
       <div className="grid-2 mb-24">
@@ -608,9 +608,9 @@ function AdminReports({ showToast }) {
    ADMIN PORTAL SHELL
    Lifts state up, handles mobile toggle & URL sync
 ═══════════════════════════════════════════════════ */
-export default function AdminPortal({ onSignOut }) {
+export default function AdminPortal({ onSignOut, user, token }) {
   const { toasts, show } = useToast();
-  const API_BASE = "http://localhost:5001/api/admin";
+  const API_BASE = "/api/admin";
   
   // URL Sync for sub-pages
   const [page, setPage] = useState(() => {
@@ -624,7 +624,7 @@ export default function AdminPortal({ onSignOut }) {
   const [pendingRests, setPendingRests] = useState([]);
   const [ordersData, setOrdersData] = useState([]);
   const [usersData, setUsersData] = useState([]);
-  const [stats, setStats] = useState({ totalUsers: 0, pendingRestaurants: 0, totalOrders: 0, revenue: "₹0" });
+  const [stats, setStats] = useState({ totalUsers: 0, totalRestaurants: 0, pendingRestaurants: 0, totalOrders: 0, revenue: "₹0" });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -757,9 +757,9 @@ export default function AdminPortal({ onSignOut }) {
         navItems={ADMIN_NAV}
         activeItem={page}
         onNav={handleNav}
-        userName="Super Admin"
+        userName={user?.name || "Super Admin"}
         userRole="Full Access"
-        userInitials="AD"
+        userInitials={user?.initials || "AD"}
         isOpen={isSidebarOpen}
         onClose={() => setSidebarOpen(false)}
         userAvatarStyle={{ background: "linear-gradient(135deg,#1A1A2E,var(--teal))" }}

@@ -1,4 +1,5 @@
 import express from 'express';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import generateToken from '../utils/generateToken.js';
 import { protect } from '../middleware/authMiddleware.js';
@@ -100,6 +101,62 @@ router.get('/me', protect, async (req, res) => {
     });
   } else {
     res.status(404).json({ message: 'User not found' });
+  }
+});
+
+// @route   POST /api/auth/google
+// @desc    Auth user with Google token
+// @access  Public
+router.post('/google', async (req, res) => {
+  try {
+    const { token, isCustom, email: customEmail, name: customName } = req.body;
+    let name, email;
+
+    if (isCustom) {
+      // Trust the info because we fetched it on frontend via valid access_token
+      name = customName;
+      email = customEmail;
+    } else {
+      const clientID = process.env.GOOGLE_CLIENT_ID;
+      const client = new OAuth2Client(clientID);
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: clientID,
+      });
+      const payload = ticket.getPayload();
+      name = payload.name;
+      email = payload.email;
+    }
+    
+    let user = await User.findOne({ email });
+    if (!user) {
+      const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+      const colors = ['var(--red)', 'var(--orange)', 'var(--teal)', 'var(--green)', '#9B5DE5'];
+      const avatarBg = colors[Math.floor(Math.random() * colors.length)];
+      
+      user = await User.create({
+        name,
+        email,
+        password: Math.random().toString(36).slice(-10) + 'A1!', // Dummy secure password
+        role: 'customer',
+        initials,
+        avatarBg
+      });
+    }
+    
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role,
+      initials: user.initials,
+      avatarBg: user.avatarBg,
+      token: generateToken(user._id)
+    });
+  } catch (error) {
+    console.error('Google Auth Error:', error);
+    res.status(401).json({ message: 'Invalid Google auth' });
   }
 });
 

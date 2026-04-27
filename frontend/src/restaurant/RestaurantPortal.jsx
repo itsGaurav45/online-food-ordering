@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Navigate } from "react-router-dom";
 import { PanelSidebar, BarChart, Modal, useToast, ToastContainer } from "../shared/components";
 
 /* ─── Restaurant Nav Config ──────────────────────────── */
@@ -16,38 +17,266 @@ const REST_NAV = [
   { id: "logout",     icon: "fa-solid fa-right-from-bracket", label: "Logout" },
 ];
 
+/* ─── NEW ORDER POPUP NOTIFICATION ───────────────────── */
+function NewOrderPopup({ order, onAccept, onReject }) {
+  const [visible, setVisible] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60);
+
+  useEffect(() => {
+    // Slide-in after mount
+    const t = setTimeout(() => setVisible(true), 50);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Countdown 60s then auto-reject
+  useEffect(() => {
+    if (timeLeft <= 0) { onReject(); return; }
+    const t = setTimeout(() => setTimeLeft(p => p - 1), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft]);
+
+  const pct = (timeLeft / 60) * 100;
+  const clr = timeLeft > 30 ? "var(--green)" : timeLeft > 15 ? "var(--yellow)" : "var(--red)";
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      opacity: visible ? 1 : 0,
+      transition: "opacity 0.35s ease"
+    }}>
+      <div style={{
+        background: "var(--card)",
+        borderRadius: "var(--radius-xl)",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.35)",
+        width: "100%", maxWidth: 460,
+        overflow: "hidden",
+        transform: visible ? "translateY(0) scale(1)" : "translateY(40px) scale(0.96)",
+        transition: "transform 0.4s cubic-bezier(.34,1.56,.64,1)"
+      }}>
+        {/* Header */}
+        <div style={{
+          background: "linear-gradient(135deg, #E63946, #C1121F)",
+          padding: "20px 24px",
+          display: "flex", alignItems: "center", gap: 14
+        }}>
+          <div style={{
+            width: 52, height: 52, background: "rgba(255,255,255,0.18)",
+            borderRadius: "50%", display: "flex", alignItems: "center",
+            justifyContent: "center", fontSize: "1.6rem",
+            animation: "pulse 1s infinite"
+          }}>🛵</div>
+          <div>
+            <div style={{ color: "#fff", fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "1.2rem" }}>
+              🔔 New Order Received!
+            </div>
+            <div style={{ color: "rgba(255,255,255,0.82)", fontSize: "0.8rem", marginTop: 2 }}>
+              Respond quickly to keep your rating high
+            </div>
+          </div>
+        </div>
+
+        {/* Timer bar */}
+        <div style={{ height: 5, background: "var(--bg2)" }}>
+          <div style={{
+            height: "100%", width: `${pct}%`,
+            background: clr,
+            transition: "width 1s linear, background 0.5s"
+          }} />
+        </div>
+
+        {/* Order details */}
+        <div style={{ padding: "20px 24px" }}>
+          {/* Order ID + timer */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "1.1rem" }}>{order.orderId}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text3)", marginTop: 2 }}>
+                {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+            <div style={{
+              width: 52, height: 52, borderRadius: "50%",
+              border: `3px solid ${clr}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "1rem",
+              color: clr, transition: "border-color 0.5s, color 0.5s"
+            }}>{timeLeft}s</div>
+          </div>
+
+          {/* Customer */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            background: "var(--bg2)", borderRadius: "var(--radius-lg)",
+            padding: "10px 14px", marginBottom: 12
+          }}>
+            <div style={{
+              width: 36, height: 36, background: "var(--red-light)",
+              borderRadius: "50%", display: "flex", alignItems: "center",
+              justifyContent: "center", fontWeight: 900, color: "var(--red)",
+              fontSize: "0.9rem"
+            }}>{order.customer?.name?.[0] || "C"}</div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: "0.88rem" }}>{order.customer?.name || "Customer"}</div>
+              <div style={{ fontSize: "0.72rem", color: "var(--text3)" }}>{order.paymentMethod} · {order.amount}</div>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div style={{
+            background: "var(--bg2)", borderRadius: "var(--radius-lg)",
+            padding: "10px 14px", marginBottom: 12,
+            fontSize: "0.85rem", fontWeight: 700
+          }}>
+            <div style={{ fontSize: "0.72rem", color: "var(--text3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".05em" }}>Items Ordered</div>
+            {order.items}
+          </div>
+
+          {/* Address */}
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 8,
+            background: "var(--bg2)", borderRadius: "var(--radius-lg)",
+            padding: "10px 14px", marginBottom: 20,
+            fontSize: "0.82rem", color: "var(--text2)"
+          }}>
+            <i className="fa-solid fa-location-dot" style={{ color: "var(--red)", marginTop: 2 }}></i>
+            <span>{order.address}</span>
+          </div>
+
+          {/* Buttons */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <button
+              className="btn btn-danger"
+              style={{ padding: "14px", fontSize: "0.95rem", fontWeight: 800 }}
+              onClick={onReject}
+            >
+              <i className="fa-solid fa-xmark"></i> Reject
+            </button>
+            <button
+              className="btn btn-success"
+              style={{ padding: "14px", fontSize: "0.95rem", fontWeight: 800 }}
+              onClick={onAccept}
+            >
+              <i className="fa-solid fa-check"></i> Accept Order
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════
    RESTAURANT DASHBOARD — acceptOrder(), rejectOrder(), BarChart, markReady
 ═══════════════════════════════════════════════════════ */
-function RestDashboard({ onNav, token }) {
+function RestDashboard({ onNav, token, restaurant, user }) {
   const { toasts, show } = useToast();
-  // Live orders list — acceptOrder() / rejectOrder()
-  const [liveOrders, setLiveOrders] = useState([
-    { id: "#119", bg: "var(--yellow-light)", clr: "#8A6800", items: "Chicken Biryani × 2, Raita", customer: "Rohan Singh · Table 4 · Just now",   status: "new",       statusLabel: "New Order",  ready: false },
-    { id: "#118", bg: "var(--orange-light)", clr: "#C45D30", items: "Margherita × 1, Pepperoni × 1", customer: "Arjun Sharma · 12:01 PM · 8 min", status: "preparing", statusLabel: "Preparing", ready: false },
-    { id: "#117", bg: "rgba(15,163,177,.12)", clr: "var(--teal)", items: "BBQ Chicken Pizza × 2",  customer: "Priya Mehta · 11:52 AM · 17 min",   status: "delivering",statusLabel: "Delivering", ready: false, eta: "ETA: 5 min" },
-    { id: "#116", bg: "var(--green-light)",  clr: "#197A32", items: "Penne Arrabbiata × 3, Garlic Bread", customer: "Meera Joshi · 11:30 AM · ₹847", status: "delivered", statusLabel: "Delivered", revenue: "₹847" },
-  ]);
-  const [newOrderBadge, setNewOrderBadge] = useState(4);
+  const [liveOrders, setLiveOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [newOrderBadge, setNewOrderBadge] = useState(0);
+  const [popupQueue, setPopupQueue] = useState([]);     // queued new orders for popup
+  const [popupOrder, setPopupOrder] = useState(null);   // currently showing popup
+  const seenOrderIds = useRef(new Set());
+
+  const fetchOrders = async () => {
+    if (!restaurant?._id) return;
+    try {
+      const res = await fetch(`/api/orders/restaurant/${restaurant._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      const formatted = data.map(o => ({
+        ...o,
+        id: o.orderId,
+        status: o.status.toLowerCase(),
+        statusLabel: o.status,
+        customer: `${o.customer?.name} · ${new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      }));
+
+      // Detect genuinely NEW orders we haven't seen yet
+      const brandNew = data.filter(o =>
+        o.status === 'New' && !seenOrderIds.current.has(o._id)
+      );
+      if (brandNew.length > 0) {
+        brandNew.forEach(o => seenOrderIds.current.add(o._id));
+        setPopupQueue(q => [...q, ...brandNew]);
+      }
+
+      setLiveOrders(formatted.filter(o => o.status !== 'delivered' && o.status !== 'cancelled'));
+      setNewOrderBadge(formatted.filter(o => o.status === 'new').length);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 10000); // poll every 10s
+    return () => clearInterval(interval);
+  }, [restaurant, token]);
+
+  // Show next popup from queue when none is showing
+  useEffect(() => {
+    if (!popupOrder && popupQueue.length > 0) {
+      const [next, ...rest] = popupQueue;
+      setPopupOrder(next);
+      setPopupQueue(rest);
+    }
+  }, [popupQueue, popupOrder]);
 
   const statusStyle = { new: "var(--yellow-light)", preparing: "var(--orange-light)", delivering: "rgba(15,163,177,.12)", delivered: "var(--green-light)" };
   const statusTextClr = { new: "#8A6800", preparing: "#C45D30", delivering: "var(--teal)", delivered: "#197A32" };
 
-  // acceptOrder(id)
+  // acceptOrder(id) — from live orders list
   const acceptOrder = async (id) => {
     const order = liveOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`http://localhost:5001/api/orders/${order._id}/status`, {
+        await fetch(`/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Preparing", statusBadge: "badge-orange" })
         });
+        setLiveOrders(p => p.map(o => o.id === id ? { ...o, status: "preparing", statusLabel: "Preparing" } : o));
+        setNewOrderBadge(b => Math.max(0, b - 1));
+        show("✅ Order accepted!", "success");
       } catch (e) { console.error(e); }
     }
-    setLiveOrders(p => p.map(o => o.id === id ? { ...o, status: "preparing", statusLabel: "Preparing" } : o));
-    setNewOrderBadge(b => Math.max(0, b - 1));
-    show("Order accepted!", "success");
+  };
+
+  // acceptOrderFromPopup(order) — from popup notification
+  const acceptOrderFromPopup = async (order) => {
+    try {
+      await fetch(`/api/orders/${order._id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ status: "Preparing", statusBadge: "badge-orange" })
+      });
+      setLiveOrders(p => p.map(o => o._id === order._id
+        ? { ...o, status: "preparing", statusLabel: "Preparing" }
+        : o
+      ));
+      setNewOrderBadge(b => Math.max(0, b - 1));
+      show(`✅ Order ${order.orderId} accepted! Start preparing now.`, "success");
+    } catch (e) { console.error(e); }
+    setPopupOrder(null);
+  };
+
+  // rejectOrderFromPopup(order) — from popup notification
+  const rejectOrderFromPopup = async (order) => {
+    try {
+      await fetch(`/api/orders/${order._id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ status: "Cancelled", statusBadge: "badge-red" })
+      });
+      setLiveOrders(p => p.filter(o => o._id !== order._id));
+      show(`❌ Order ${order.orderId} rejected.`, "error");
+    } catch (e) { console.error(e); }
+    setPopupOrder(null);
   };
 
   // rejectOrder(id)
@@ -55,21 +284,31 @@ function RestDashboard({ onNav, token }) {
     const order = liveOrders.find(o => o.id === id);
     if (order?._id) {
       try {
-        await fetch(`http://localhost:5001/api/orders/${order._id}/status`, {
+        await fetch(`/api/orders/${order._id}/status`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ status: "Cancelled", statusBadge: "badge-red" })
         });
+        setLiveOrders(p => p.filter(o => o.id !== id));
+        show("Order rejected", "error");
       } catch (e) { console.error(e); }
     }
-    setLiveOrders(p => p.filter(o => o.id !== id));
-    show("Order rejected", "error");
   };
 
   // markReady(id)
-  const markReady = (id) => {
-    setLiveOrders(p => p.map(o => o.id === id ? { ...o, status: "delivering", statusLabel: "Delivering" } : o));
-    show("Order marked as ready", "success");
+  const markReady = async (id) => {
+    const order = liveOrders.find(o => o.id === id);
+    if (order?._id) {
+      try {
+        await fetch(`/api/orders/${order._id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ status: "Delivering", statusBadge: "badge-teal" })
+        });
+        setLiveOrders(p => p.map(o => o.id === id ? { ...o, status: "delivering", statusLabel: "Delivering" } : o));
+        show("Order marked as ready and out for delivery", "success");
+      } catch (e) { console.error(e); }
+    }
   };
 
   const revenueData   = [8200, 11400, 9800, 13200, 10600, 14280, 12900];
@@ -77,11 +316,12 @@ function RestDashboard({ onNav, token }) {
 
   return (
     <div>
+      {popupOrder && <NewOrderPopup order={popupOrder} onAccept={() => acceptOrderFromPopup(popupOrder)} onReject={() => rejectOrderFromPopup(popupOrder)} />}
       <div className="panel-topbar">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div>
             <div className="panel-topbar-title">Dashboard</div>
-            <div style={{ fontSize: "0.78rem", color: "var(--text3)" }}>Welcome back, Pizza Palace 🍕</div>
+            <div style={{ fontSize: "0.78rem", color: "var(--text3)" }}>Welcome back, <strong>{restaurant?.name || user?.name || "Restaurant Partner"}</strong> 🍕</div>
           </div>
         </div>
         <div className="panel-topbar-right">
@@ -148,14 +388,18 @@ function RestDashboard({ onNav, token }) {
             <div><div className="section-title" style={{ fontSize: "1.1rem" }}>🔴 Live Orders</div><div className="section-subtitle">Requiring your attention</div></div>
             <button className="btn btn-secondary btn-sm" onClick={() => onNav("orders")}>View All</button>
           </div>
-          {liveOrders.map(o => (
+          {loading ? (
+            <div style={{ padding: 40, textAlign: "center", color: "var(--text3)" }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 10 }}></i> Loading orders...
+            </div>
+          ) : liveOrders.length > 0 ? liveOrders.map(o => (
             <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ background: statusStyle[o.status], color: statusTextClr[o.status], width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.8rem", flexShrink: 0 }}>{o.id}</div>
+              <div style={{ background: statusStyle[o.status] || 'var(--bg2)', color: statusTextClr[o.status] || 'var(--text)', width: 36, height: 36, borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "0.8rem", flexShrink: 0 }}>{o.id}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: "0.88rem", fontWeight: 800 }}>{o.items}</div>
                 <div style={{ fontSize: "0.75rem", color: "var(--text3)" }}>{o.customer}</div>
               </div>
-              <div style={{ background: statusStyle[o.status], color: statusTextClr[o.status], padding: "4px 10px", borderRadius: "var(--radius-full)", fontSize: "0.72rem", fontWeight: 800 }}>{o.statusLabel}</div>
+              <div style={{ background: statusStyle[o.status] || 'var(--bg2)', color: statusTextClr[o.status] || 'var(--text)', padding: "4px 10px", borderRadius: "var(--radius-full)", fontSize: "0.72rem", fontWeight: 800 }}>{o.statusLabel}</div>
               {o.status === "new" && (
                 <div style={{ display: "flex", gap: 6 }}>
                   <button className="btn btn-success btn-sm" onClick={() => acceptOrder(o.id)}><i className="fa-solid fa-check"></i> Accept</button>
@@ -165,10 +409,14 @@ function RestDashboard({ onNav, token }) {
               {o.status === "preparing" && (
                 <button className="btn btn-sm" style={{ background: "var(--teal)", color: "#fff" }} onClick={() => markReady(o.id)}>Mark Ready</button>
               )}
-              {o.status === "delivering" && <div style={{ fontSize: "0.78rem", color: "var(--text3)" }}>{o.eta}</div>}
-              {o.status === "delivered"  && <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--green)" }}>{o.revenue}</div>}
+              {o.status === "delivering" && <div style={{ fontSize: "0.78rem", color: "var(--text3)" }}>Out for delivery</div>}
+              {o.status === "delivered"  && <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--green)" }}>Delivered</div>}
             </div>
-          ))}
+          )) : (
+            <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: "0.9rem" }}>
+              No active orders right now.
+            </div>
+          )}
         </div>
       </div>
 
@@ -196,40 +444,111 @@ function RestDashboard({ onNav, token }) {
 /* ═══════════════════════════════════════════════════════
    RESTAURANT ORDERS — setTab(), acceptOrder(), rejectOrder(), timer countdown
 ═══════════════════════════════════════════════════════ */
-function RestOrders() {
+function RestOrders({ token, restaurant }) {
   const { toasts, show } = useToast();
-  // setTab()
   const [activeTab, setActiveTab] = useState("New");
-  // Timer countdown (from HTML setInterval)
-  const [secs, setSecs] = useState(165);
-  useEffect(() => {
-    const t = setInterval(() => setSecs(s => (s > 0 ? s - 1 : 0)), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const timerStr = `${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
+  const [allOrders, setAllOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [newOrders, setNewOrders] = useState([
-    { id: "#BB2024119", customer: "Rohan Singh",  meta: "Just now · UPI Paid · ₹698",  items: "• Chicken Biryani × 2 · • Raita × 1 · • Soft Drink × 2", addr: "B-12 Saket District Centre, Delhi · Deliver by 12:45 PM", priority: "🔥 Priority" },
-    { id: "#BB2024120", customer: "Sneha Kapoor", meta: "1 min ago · COD · ₹1,248",     items: "• BBQ Chicken Pizza × 2 · • Garlic Bread × 2 · • Tiramisu × 1", addr: "A-44 Gomti Nagar, Lucknow · Deliver by 1:00 PM", priority: "Normal" },
-  ]);
+  const fetchOrders = async () => {
+    if (!restaurant?._id) return;
+    try {
+      const res = await fetch(`/api/orders/restaurant/${restaurant._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAllOrders(data.map(o => ({
+        ...o,
+        id: o.orderId,
+        meta: `${new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${o.paymentMethod} · ${o.amount}`,
+        addr: o.address,
+        priority: "Normal"
+      })));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 30000);
+    return () => clearInterval(interval);
+  }, [restaurant, token]);
+
+  const filteredOrders = allOrders.filter(o => o.status === activeTab);
 
   // acceptOrder(id)
-  const acceptOrder = (id) => {
-    setNewOrders(p => p.filter(o => o.id !== id));
-    show("Order accepted!", "success");
+  const acceptOrder = async (id) => {
+    const order = allOrders.find(o => o.id === id);
+    if (order?._id) {
+      try {
+        await fetch(`/api/orders/${order._id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ status: "Preparing", statusBadge: "badge-orange" })
+        });
+        show("Order accepted!", "success");
+        fetchOrders();
+      } catch (e) { console.error(e); }
+    }
   };
+
   // rejectOrder(id)
-  const rejectOrder = (id) => {
-    setNewOrders(p => p.filter(o => o.id !== id));
-    show("Order rejected", "error");
+  const rejectOrder = async (id) => {
+    const order = allOrders.find(o => o.id === id);
+    if (order?._id) {
+      try {
+        await fetch(`/api/orders/${order._id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ status: "Cancelled", statusBadge: "badge-red" })
+        });
+        show("Order rejected", "error");
+        fetchOrders();
+      } catch (e) { console.error(e); }
+    }
+  };
+
+  // markReady(id)
+  const markReady = async (id) => {
+    const order = allOrders.find(o => o.id === id);
+    if (order?._id) {
+      try {
+        await fetch(`/api/orders/${order._id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ status: "Delivering", statusBadge: "badge-teal" })
+        });
+        show("Order marked as ready!", "success");
+        fetchOrders();
+      } catch (e) { console.error(e); }
+    }
+  };
+
+  // markDelivered(id)
+  const markDelivered = async (id) => {
+    const order = allOrders.find(o => o.id === id);
+    if (order?._id) {
+      try {
+        await fetch(`/api/orders/${order._id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ status: "Delivered", statusBadge: "badge-green" })
+        });
+        show("Order marked as delivered!", "success");
+        fetchOrders();
+      } catch (e) { console.error(e); }
+    }
   };
 
   const tabs = [
-    { label: "🔴 New",        id: "New",        badge: "badge-red",    cnt: newOrders.length },
-    { label: "🔥 Preparing",  id: "Preparing",  badge: "badge-orange", cnt: 2 },
-    { label: "🛵 Delivering", id: "Delivering", badge: "badge-teal",   cnt: 3 },
-    { label: "✅ Delivered",  id: "Delivered",  badge: null, cnt: null },
-    { label: "❌ Cancelled",  id: "Cancelled",  badge: null, cnt: null },
+    { label: "🔴 New",        id: "New",        badge: "badge-red",    cnt: allOrders.filter(o => o.status === 'New').length },
+    { label: "🔥 Preparing",  id: "Preparing",  badge: "badge-orange", cnt: allOrders.filter(o => o.status === 'Preparing').length },
+    { label: "🛵 Delivering", id: "Delivering", badge: "badge-teal",   cnt: allOrders.filter(o => o.status === 'Delivering').length },
+    { label: "✅ Delivered",  id: "Delivered",  badge: null,           cnt: null },
+    { label: "❌ Cancelled",  id: "Cancelled",  badge: null,           cnt: null },
   ];
 
   const StatusTimeline = ({ step }) => {
@@ -271,82 +590,55 @@ function RestOrders() {
         ))}
       </div>
 
-      {/* NEW ORDERS TAB */}
-      {activeTab === "New" && (
-        <div>
-          {newOrders.map((o, idx) => (
-            <div key={o.id} style={{ background: "var(--card)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden", marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "var(--bg2)", borderBottom: "1px solid var(--border)" }}>
-                <div style={{ background: "var(--red-light)", color: "var(--red)", fontFamily: "var(--font-display)", fontWeight: 900, padding: "8px 14px", borderRadius: "var(--radius-sm)", fontSize: "0.9rem" }}>{o.id}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: "0.9rem" }}>{o.customer}</div>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text3)" }}><i className="fa-solid fa-clock" style={{ fontSize: 11 }}></i> {o.meta}</div>
-                </div>
-                <span style={{ padding: "3px 8px", borderRadius: "var(--radius-full)", fontSize: "0.68rem", fontWeight: 800, background: o.priority.includes("🔥") ? "var(--red-light)" : "var(--gray4)", color: o.priority.includes("🔥") ? "var(--red)" : "var(--text3)" }}>{o.priority}</span>
-                {/* Timer countdown */}
-                {idx === 0 && (
-                  <div style={{ fontFamily: "var(--font-display)", fontSize: "0.9rem", fontWeight: 900, color: "var(--orange)", display: "flex", alignItems: "center", gap: 4 }}>
-                    <i className="fa-solid fa-clock"></i> {timerStr}
-                  </div>
-                )}
+      {/* ORDERS LIST */}
+      <div>
+        {filteredOrders.map((o, idx) => (
+          <div key={o.id} style={{ background: "var(--card)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "var(--bg2)", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ background: o.statusBadge === 'badge-red' ? 'var(--red-light)' : o.statusBadge === 'badge-orange' ? 'var(--orange-light)' : 'var(--bg2)', color: 'var(--text)', fontFamily: "var(--font-display)", fontWeight: 900, padding: "8px 14px", borderRadius: "var(--radius-sm)", fontSize: "0.9rem" }}>{o.id}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: "0.9rem" }}>{o.customer?.name}</div>
+                <div style={{ fontSize: "0.75rem", color: "var(--text3)" }}><i className="fa-solid fa-clock" style={{ fontSize: 11 }}></i> {o.meta}</div>
               </div>
-              <div style={{ padding: "16px 20px" }}>
-                <div style={{ fontSize: "0.85rem", color: "var(--text2)", marginBottom: 10 }}>{o.items}</div>
-                <div style={{ fontSize: "0.75rem", color: "var(--text3)", background: "var(--bg2)", padding: "8px 12px", borderRadius: "var(--radius-sm)", marginBottom: 12 }}>
-                  <i className="fa-solid fa-location-dot" style={{ color: "var(--red)" }}></i> {o.addr}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <StatusTimeline step="Received" />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button className="btn btn-danger btn-sm"  onClick={() => rejectOrder(o.id)}><i className="fa-solid fa-xmark"></i> Reject</button>
-                    <button className="btn btn-success btn-sm" onClick={() => acceptOrder(o.id)}><i className="fa-solid fa-check"></i> Accept Order</button>
-                  </div>
+              <span className={`badge ${o.statusBadge}`}>{o.status}</span>
+            </div>
+            <div style={{ padding: "16px 20px" }}>
+              <div style={{ fontSize: "0.85rem", color: "var(--text2)", marginBottom: 10 }}>{o.items}</div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text3)", background: "var(--bg2)", padding: "8px 12px", borderRadius: "var(--radius-sm)", marginBottom: 12 }}>
+                <i className="fa-solid fa-location-dot" style={{ color: "var(--red)" }}></i> {o.addr}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <StatusTimeline step={o.status === 'New' ? 'Received' : o.status} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  {o.status === "New" && (
+                    <>
+                      <button className="btn btn-danger btn-sm"  onClick={() => rejectOrder(o.id)}><i className="fa-solid fa-xmark"></i> Reject</button>
+                      <button className="btn btn-success btn-sm" onClick={() => acceptOrder(o.id)}><i className="fa-solid fa-check"></i> Accept Order</button>
+                    </>
+                  )}
+                  {o.status === "Preparing" && (
+                    <button className="btn btn-sm" style={{ background: "var(--teal)", color: "#fff" }} onClick={() => markReady(o.id)}>
+                      <i className="fa-solid fa-bell"></i> Mark Ready
+                    </button>
+                  )}
+                  {o.status === "Delivering" && (
+                    <button className="btn btn-success btn-sm" onClick={() => markDelivered(o.id)}>
+                      <i className="fa-solid fa-check"></i> Mark Delivered
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
-          {newOrders.length === 0 && (
-            <div style={{ textAlign: "center", padding: 60, color: "var(--text3)" }}>
-              <div style={{ fontSize: "3rem", marginBottom: 12 }}>📋</div>
-              <div style={{ fontWeight: 700 }}>No new orders right now</div>
-              <div style={{ fontSize: "0.82rem", marginTop: 6 }}>New orders will appear here automatically</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* PREPARING TAB */}
-      {activeTab === "Preparing" && (
-        <div style={{ background: "var(--card)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", boxShadow: "var(--shadow)", overflow: "hidden", marginBottom: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "var(--bg2)", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ background: "var(--orange-light)", color: "#C45D30", fontFamily: "var(--font-display)", fontWeight: 900, padding: "8px 14px", borderRadius: "var(--radius-sm)", fontSize: "0.9rem" }}>#BB2024118</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: "0.9rem" }}>Arjun Sharma</div>
-              <div style={{ fontSize: "0.75rem", color: "var(--text3)" }}>12:01 PM · UPI · ₹900</div>
-            </div>
-            <span className="badge badge-orange">Preparing</span>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: "0.9rem", fontWeight: 900, color: "var(--orange)", display: "flex", alignItems: "center", gap: 4 }}><i className="fa-solid fa-fire"></i> 12 min</div>
-          </div>
-          <div style={{ padding: "16px 20px" }}>
-            <div style={{ fontSize: "0.85rem", color: "var(--text2)", marginBottom: 12 }}>• Margherita Pizza × 1 · • Pepperoni Feast × 1 · • Penne Arrabbiata × 1</div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <StatusTimeline step="Preparing" />
-              <button className="btn btn-sm" style={{ background: "var(--teal)", color: "#fff" }} onClick={() => show("Order marked as ready for pickup", "success")}>
-                <i className="fa-solid fa-bell"></i> Mark Ready
-              </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Other tabs — placeholder */}
-      {!["New","Preparing"].includes(activeTab) && (
-        <div style={{ textAlign: "center", padding: 60, color: "var(--text3)" }}>
-          <div style={{ fontSize: "3rem", marginBottom: 12 }}>📋</div>
-          <div style={{ fontWeight: 700 }}>No {activeTab.toLowerCase()} orders</div>
-          <div style={{ fontSize: "0.82rem", marginTop: 6 }}>Orders will appear here</div>
-        </div>
-      )}
+        ))}
+        {filteredOrders.length === 0 && (
+          <div style={{ textAlign: "center", padding: 60, color: "var(--text3)" }}>
+            <div style={{ fontSize: "3rem", marginBottom: 12 }}>📋</div>
+            <div style={{ fontWeight: 700 }}>No {activeTab.toLowerCase()} orders right now</div>
+            <div style={{ fontSize: "0.82rem", marginTop: 6 }}>Orders will appear here automatically</div>
+          </div>
+        )}
+      </div>
 
       <ToastContainer toasts={toasts} />
     </div>
@@ -568,20 +860,45 @@ function RestMenu() {
 ═══════════════════════════════════════════════════════ */
 export default function RestaurantPortal({ onSignOut, user, token }) {
   const [page, setPage] = useState("dashboard");
+  const [restaurantInfo, setRestaurantInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || user.role !== 'restaurant') return;
+    const fetchMyRest = async () => {
+      try {
+        const res = await fetch('/api/restaurants/mine', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setRestaurantInfo(data);
+        }
+      } catch (err) {
+        console.error("Error fetching restaurant info:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMyRest();
+  }, [token]);
 
   const handleNav = (id) => {
     if (id === "logout") { onSignOut(); return; }
     setPage(id);
   };
 
-  const restName = user?.name || "Pizza Palace";
-  const restInitials = restName.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
+  const restName = restaurantInfo?.name || user?.name || "BiteBolt Partner";
+  const restInitials = restaurantInfo?.emoji || (restName && typeof restName === 'string' ? restName.split(" ").filter(Boolean).map(n => n[0]).join("").toUpperCase().substring(0, 2) : "RP");
 
   const pages = {
-    dashboard: <RestDashboard onNav={setPage} token={token} />,
-    orders:    <RestOrders />,
-    menu:      <RestMenu />,
+    dashboard: <RestDashboard onNav={setPage} token={token} restaurant={restaurantInfo} user={user} />,
+    orders:    <RestOrders token={token} restaurant={restaurantInfo} />,
+    menu:      <RestMenu token={token} restaurant={restaurantInfo} />,
   };
+
+  // Reverted strict redirection to fix blank page crash
+  if (!user) return null;
 
   return (
     <div className="panel-layout">

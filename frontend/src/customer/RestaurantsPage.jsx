@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { SiteHeader, useToast, ToastContainer } from "../shared/components";
 
-export default function RestaurantsPage({ onNav, cart, addresses = [], selectedAddrIdx = 0 }) {
+export default function RestaurantsPage({ onNav, cart, addresses = [], selectedAddrIdx = 0, user }) {
   const [activeFilter, setActiveFilter] = useState("All");
   const [priceVal, setPriceVal] = useState(500);
   const [page, setPage] = useState(1);
@@ -13,7 +13,7 @@ export default function RestaurantsPage({ onNav, cart, addresses = [], selectedA
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
-        const response = await fetch('http://localhost:5001/api/restaurants');
+        const response = await fetch('/api/restaurants');
         const data = await response.json();
         setRestaurants(data.map(r => ({
           ...r,
@@ -36,7 +36,7 @@ export default function RestaurantsPage({ onNav, cart, addresses = [], selectedA
 
   return (
     <div>
-      <SiteHeader cartCount={cart?.length || 0} onNav={onNav} currentAddress={currentAddress} />
+      <SiteHeader cartCount={cart?.length || 0} onNav={onNav} currentAddress={currentAddress} user={user} />
 
       {/* FILTER BAR */}
       <div style={{ background: "var(--card)", borderBottom: "1px solid var(--border)", padding: "14px 0", position: "sticky", top: "var(--header-h)", zIndex: 90, boxShadow: "var(--shadow-sm)" }}>
@@ -121,7 +121,7 @@ export default function RestaurantsPage({ onNav, cart, addresses = [], selectedA
                 </div>
               ) : (
                 restaurants.map((r, i) => (
-                <div key={i} className={`rest-card${r.closed ? " rest-closed" : ""}`} onClick={() => onNav("menu", { restaurant: r.name })}>
+                <div key={i} className={`rest-card${r.closed ? " rest-closed" : ""}`} onClick={() => onNav("menu", { restaurant: r.name, location: r.location })}>
                   <div className="rest-card-img">
                     <img src={r.img} onError={e => { e.target.src = "https://placehold.co/400x190/FFEBE0/E63946?text=🍕"; }} alt={r.name} />
                     {r.discount && <span style={{ position: "absolute", top: 10, left: 10, background: "var(--red)", color: "#fff", fontSize: "0.72rem", fontWeight: 800, padding: "4px 10px", borderRadius: "var(--radius-full)" }}>{r.discount}</span>}

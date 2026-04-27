@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SiteHeader, useToast, ToastContainer } from "../shared/components";
 
-export default function ProfilePage({ onNav, cart, addresses = [], setAddresses, selectedAddrIdx, setSelectedAddrIdx }) {
+export default function ProfilePage({ onNav, cart, addresses = [], setAddresses, selectedAddrIdx, setSelectedAddrIdx, user, onSignOut }) {
   // showPane()
   const [activePane, setActivePane] = useState("details");
   // toggleEdit() state
@@ -60,15 +60,15 @@ export default function ProfilePage({ onNav, cart, addresses = [], setAddresses,
             <div style={{ background: "linear-gradient(135deg,var(--red),var(--orange))", borderRadius: "var(--radius-xl)", padding: "28px 20px", textAlign: "center", color: "#fff", marginBottom: 14, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: -40, right: -40, width: 130, height: 130, background: "rgba(255,255,255,0.1)", borderRadius: "50%" }}></div>
               <div style={{ position: "relative", display: "inline-block", marginBottom: 14 }}>
-                <div style={{ width: 84, height: 84, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: "2rem", fontWeight: 900, color: "#fff", border: "4px solid rgba(255,255,255,0.5)", margin: "0 auto" }}>A</div>
+                <div style={{ width: 84, height: 84, borderRadius: "50%", background: user?.avatarBg || "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: "2rem", fontWeight: 900, color: "#fff", border: "4px solid rgba(255,255,255,0.5)", margin: "0 auto" }}>{user?.initials || "U"}</div>
                 <div style={{ position: "absolute", bottom: 0, right: 0, width: 28, height: 28, background: "#fff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--red)", fontSize: 12, boxShadow: "var(--shadow)" }}>
                   <i className="fa-solid fa-camera"></i>
                 </div>
               </div>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 900, marginBottom: 4 }}>Arjun Sharma</div>
-              <div style={{ fontSize: "0.78rem", opacity: 0.85, marginBottom: 10 }}>arjun@example.com</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 900, marginBottom: 4 }}>{user?.name || "User"}</div>
+              <div style={{ fontSize: "0.78rem", opacity: 0.85, marginBottom: 10 }}>{user?.email || ""}</div>
               <div style={{ display: "flex", justifyContent: "space-around", background: "rgba(255,255,255,0.15)", borderRadius: "var(--radius)", padding: 12 }}>
-                {[["24", "Orders"], ["₹8.4k", "Spent"], ["2", "Addresses"]].map(([v, l]) => (
+                {[[user?.totalOrders || "0", "Orders"], [user?.totalSpent || "₹0", "Spent"], [addresses.length, "Addresses"]].map(([v, l]) => (
                   <div key={l} style={{ textAlign: "center" }}>
                     <div style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 900 }}>{v}</div>
                     <div style={{ fontSize: "0.68rem", opacity: 0.8 }}>{l}</div>
@@ -89,7 +89,7 @@ export default function ProfilePage({ onNav, cart, addresses = [], setAddresses,
                 </div>
               ))}
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", fontSize: "0.88rem", fontWeight: 700, cursor: "pointer", transition: "all var(--transition)", color: "var(--red)" }}
-                onClick={() => show("Logged out successfully", "info")}>
+                onClick={() => { onSignOut ? onSignOut() : show("Logged out", "info"); }}>
                 <i className="fa-solid fa-right-from-bracket" style={{ width: 18, textAlign: "center", fontSize: 14 }}></i> Logout
               </div>
             </div>
@@ -111,7 +111,7 @@ export default function ProfilePage({ onNav, cart, addresses = [], setAddresses,
                   <div style={{ padding: 22 }}>
                     <form onSubmit={saveProfile}>  {/* saveProfile() */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                        {[["First Name", "Arjun", "text"], ["Last Name", "Sharma", "text"]].map(([lbl, val, t]) => (
+                        {[["First Name", user?.name?.split(" ")[0] || "User", "text"], ["Last Name", user?.name?.split(" ").slice(1).join(" ") || "", "text"]].map(([lbl, val, t]) => (
                           <div key={lbl} className="form-group">
                             <label className="form-label">{lbl}</label>
                             <div className="input-wrap"><i className="fa-solid fa-user input-icon"></i><input type={t} className="form-input" defaultValue={val} disabled={!editing} /></div>
@@ -120,10 +120,10 @@ export default function ProfilePage({ onNav, cart, addresses = [], setAddresses,
                       </div>
                       <div className="form-group">
                         <label className="form-label">Email Address</label>
-                        <div className="input-wrap"><i className="fa-solid fa-envelope input-icon"></i><input type="email" className="form-input" defaultValue="arjun@example.com" disabled={!editing} /></div>
+                        <div className="input-wrap"><i className="fa-solid fa-envelope input-icon"></i><input type="email" className="form-input" defaultValue={user?.email || ""} disabled={!editing} /></div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                        <div className="form-group"><label className="form-label">Mobile Number</label><div className="input-wrap"><i className="fa-solid fa-phone input-icon"></i><input className="form-input" defaultValue="+91 9876543210" disabled={!editing} /></div></div>
+                        <div className="form-group"><label className="form-label">Mobile Number</label><div className="input-wrap"><i className="fa-solid fa-phone input-icon"></i><input className="form-input" defaultValue={user?.phone || ""} disabled={!editing} /></div></div>
                         <div className="form-group"><label className="form-label">Date of Birth</label><div className="input-wrap"><i className="fa-solid fa-cake-candles input-icon"></i><input type="date" className="form-input" defaultValue="1998-07-15" disabled={!editing} /></div></div>
                       </div>
                       <div className="form-group">

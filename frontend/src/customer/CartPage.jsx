@@ -3,7 +3,7 @@ import { SiteHeader, useToast, ToastContainer } from "../shared/components";
 
 const VALID_COUPONS = ["BITE50", "FREEDEL", "NEWUSER", "FLAT100"];
 
-export default function CartPage({ onNav, cart: items, setCart: setItems, addresses, selectedAddrIdx, setSelectedAddrIdx }) {
+export default function CartPage({ onNav, cart: items, setCart: setItems, addresses, selectedAddrIdx, setSelectedAddrIdx, user }) {
   const [couponInput, setCouponInput] = useState("");
   const [couponApplied, setCouponApplied] = useState(false);
   const { toasts, show } = useToast();
@@ -38,11 +38,11 @@ export default function CartPage({ onNav, cart: items, setCart: setItems, addres
 
   return (
     <div>
-      <SiteHeader cartCount={items.length} onNav={onNav} currentAddress={currentAddress} />
+      <SiteHeader cartCount={items.length} onNav={onNav} currentAddress={currentAddress} user={user} />
       <div className="container">
         <div className="breadcrumb" style={{ paddingTop: 20 }}>
           <a onClick={() => onNav("home")} style={{ cursor: "pointer" }}>Home</a><span className="sep">›</span>
-          <a onClick={() => onNav("menu")} style={{ cursor: "pointer" }}>Pizza Palace</a><span className="sep">›</span>
+          <a onClick={() => onNav("menu", { restaurant: items[0]?.restaurant })} style={{ cursor: "pointer" }}>{items[0]?.restaurant || "Menu"}</a><span className="sep">›</span>
           <span className="current">Cart</span>
         </div>
         <h1 style={{ fontSize: "1.8rem", marginBottom: 24 }}>🛒 Your Cart <span style={{ fontSize: "1rem", color: "var(--text3)", fontWeight: 600 }}>({items.length} items)</span></h1>
@@ -63,8 +63,8 @@ export default function CartPage({ onNav, cart: items, setCart: setItems, addres
             {/* Items */}
             <div style={{ background: "var(--card)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", overflow: "hidden", boxShadow: "var(--shadow)", marginBottom: 16 }}>
               <div style={{ padding: "18px 22px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg2)" }}>
-                <div style={{ fontFamily: "var(--font-display)", fontSize: "1rem", fontWeight: 900, display: "flex", alignItems: "center", gap: 8 }}><span>🍕</span> Pizza Palace</div>
-                <a onClick={() => onNav("menu")} style={{ fontSize: "0.78rem", color: "var(--red)", fontWeight: 700, cursor: "pointer" }}><i className="fa-solid fa-plus"></i> Add more items</a>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "1rem", fontWeight: 900, display: "flex", alignItems: "center", gap: 8 }}><span>{items[0]?.restaurantEmoji || "🍴"}</span> {items[0]?.restaurant || "Restaurant"}</div>
+                <a onClick={() => onNav("menu", { restaurant: items[0]?.restaurant })} style={{ fontSize: "0.78rem", color: "var(--red)", fontWeight: 700, cursor: "pointer" }}><i className="fa-solid fa-plus"></i> Add more items</a>
               </div>
               {items.map(item => (
                 <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 22px", borderBottom: "1px solid var(--border)", transition: "background var(--transition)" }}>

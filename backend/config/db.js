@@ -4,9 +4,12 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    return true;
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    process.exit(1);
+    const maskedUri = process.env.MONGODB_URI?.replace(/:([^@]+)@/, ':****@');
+    console.error(`MongoDB Connection Error: ${error.message}`);
+    console.error(`URI Used: ${maskedUri}`);
+    return false;
   }
 };
 

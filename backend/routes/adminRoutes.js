@@ -10,14 +10,23 @@ const router = express.Router();
 router.get('/stats', async (req, res) => {
   try {
     const totalUsers = await User.countDocuments({ role: 'customer' });
+    const totalRestaurants = await Restaurant.countDocuments({});
     const pendingRestaurants = await Restaurant.countDocuments({ status: 'pending' });
     const totalOrders = await Order.countDocuments({});
-    
-    // Simple revenue calculation (mock for now)
-    const revenue = "₹48.6L"; 
+
+    // Revenue: sum amounts from delivered orders
+    const deliveredOrders = await Order.find({ status: 'Delivered' });
+    const revenueNum = deliveredOrders.reduce((sum, o) => {
+      const num = parseInt((o.amount || '0').replace(/[^0-9]/g, ''));
+      return sum + (isNaN(num) ? 0 : num);
+    }, 0);
+    const revenue = revenueNum >= 100000
+      ? `₹${(revenueNum / 100000).toFixed(1)}L`
+      : `₹${revenueNum.toLocaleString('en-IN')}`;
 
     res.json({
       totalUsers,
+      totalRestaurants,
       pendingRestaurants,
       totalOrders,
       revenue

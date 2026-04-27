@@ -1,6 +1,7 @@
 import express from 'express';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
+import Restaurant from '../models/Restaurant.js';
 import { protect, restaurantOwner } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -10,7 +11,14 @@ const router = express.Router();
 // @access  Private (Customer)
 router.post('/', protect, async (req, res) => {
   try {
-    const { restaurant, items, itemsList, amount, address, paymentMethod } = req.body;
+    let { restaurant, restaurantName, items, itemsList, amount, address, paymentMethod } = req.body;
+
+    if (!restaurant && restaurantName) {
+      const restDoc = await Restaurant.findOne({ name: restaurantName });
+      if (restDoc) {
+        restaurant = restDoc._id;
+      }
+    }
 
     if (!restaurant || !items || !amount || !address) {
       return res.status(400).json({ message: 'Missing required order fields' });
@@ -66,12 +74,41 @@ router.get('/myorders', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/orders/:id
+// @desc    Get order by ID
+// @access  Private
+router.get('/:id', protect, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).populate('restaurant', 'name image emoji');
+    
+    if (order) {
+      // Check if user is customer or restaurant owner/admin
+      if (order.customer.toString() !== req.user._id.toString() && req.user.role === 'customer') {
+        return res.status(401).json({ message: 'Not authorized to view this order' });
+      }
+      res.json(order);
+    } else {
+      res.status(404).json({ message: 'Order not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route   GET /api/orders/restaurant/:id
 // @desc    Get orders for a specific restaurant
 // @access  Private (Restaurant Owner / Admin)
 router.get('/restaurant/:id', protect, restaurantOwner, async (req, res) => {
   try {
-    const orders = await Order.find({ restaurant: req.params.id })
+    let filter = { restaurant: req.params.id };
+    
+    // RESTORED DEMO HACK: If demo restaurant logs in, show ALL orders from ALL restaurants
+    // so they can see the popup working regardless of where the customer ordered from.
+    if (req.user && req.user.email === 'restaurant@bitebolt.com') {
+      filter = {};
+    }
+
+    const orders = await Order.find(filter)
       .populate('customer', 'name email initials avatarBg')
       .sort({ createdAt: -1 });
     res.json(orders);

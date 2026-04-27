@@ -33,7 +33,37 @@ const MENU_SECTIONS = [
   },
 ];
 
-export default function MenuPage({ onNav, cart, setCart, addresses = [], selectedAddrIdx = 0, navData }) {
+const FALLBACK_MENU_BY_CATEGORY = {
+  burgers: [
+    {
+      id: "burgers",
+      title: "🍔 Burgers",
+      items: [
+        { name: "Classic Cheeseburger", desc: "Juicy grilled patty, cheddar, lettuce, tomato and house sauce", price: 199, veg: false, img: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200" },
+        { name: "Crispy Chicken Burger", desc: "Crispy chicken, spicy mayo, pickles, and crunchy lettuce", price: 229, veg: false, bestseller: true, img: "https://images.unsplash.com/photo-1550317138-10000687a72b?w=200" },
+        { name: "Veggie Supreme Burger", desc: "Loaded veg patty with cheese, onions, lettuce and tangy sauce", price: 189, veg: true, img: "https://images.unsplash.com/photo-1610440042657-612c34d95e9f?w=200" },
+      ],
+    },
+    {
+      id: "sides",
+      title: "🍟 Sides",
+      items: [
+        { name: "French Fries", desc: "Golden, crispy fries with a sprinkle of seasoning", price: 99, veg: true, img: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=200" },
+        { name: "Onion Rings", desc: "Crunchy onion rings with a smoky dip", price: 119, veg: true, img: "https://images.unsplash.com/photo-1631206753348-db44968fd440?w=200" },
+      ],
+    },
+    {
+      id: "shakes",
+      title: "🥤 Shakes",
+      items: [
+        { name: "Chocolate Thick Shake", desc: "Rich chocolate shake topped with whipped cream", price: 149, veg: true, img: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=200" },
+      ],
+    },
+  ],
+  pizzas: MENU_SECTIONS,
+};
+
+export default function MenuPage({ onNav, cart, setCart, addresses = [], selectedAddrIdx = 0, navData, user }) {
   const [activeNav, setActiveNav] = useState("bestsellers");
   const [menuSections, setMenuSections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,15 +72,73 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
   const currentAddress = addresses[selectedAddrIdx]?.addr?.split(",")[0] || "Gomti Nagar, Lucknow";
 
   const restaurantName = navData?.restaurant || "Pizza Palace, Gomti Nagar";
+  const lowerName = restaurantName.toLowerCase();
+
+  const restaurantMeta = (() => {
+    if (lowerName.includes("burger")) {
+      return {
+        heroImg: "https://images.unsplash.com/photo-1550547660-d9450f859349?w=1200",
+        thumbImg: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200",
+        cuisine: "Burgers · Fast Food",
+        emoji: "🍔",
+      };
+    }
+    if (lowerName.includes("biryani") || lowerName.includes("dastarkhwan")) {
+      return {
+        heroImg: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=1200",
+        thumbImg: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=200",
+        cuisine: "Biryani · North Indian",
+        emoji: "🍚",
+      };
+    }
+    if (lowerName.includes("sushi") || lowerName.includes("tokyo")) {
+      return {
+        heroImg: "https://images.unsplash.com/photo-1553621042-f6e147245754?w=1200",
+        thumbImg: "https://images.unsplash.com/photo-1553621042-f6e147245754?w=200",
+        cuisine: "Sushi · Japanese",
+        emoji: "🍣",
+      };
+    }
+    if (lowerName.includes("wok") || lowerName.includes("chung") || lowerName.includes("chinese")) {
+      return {
+        heroImg: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=1200",
+        thumbImg: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=200",
+        cuisine: "Chinese · Asian",
+        emoji: "🥡",
+      };
+    }
+    if (lowerName.includes("sugar") || lowerName.includes("dessert")) {
+      return {
+        heroImg: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=1200",
+        thumbImg: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=200",
+        cuisine: "Desserts · Bakery",
+        emoji: "🍰",
+      };
+    }
+    if (lowerName.includes("green") || lowerName.includes("healthy")) {
+      return {
+        heroImg: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1200",
+        thumbImg: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=200",
+        cuisine: "Healthy · Salads",
+        emoji: "🥗",
+      };
+    }
+    // default = Pizza
+    return {
+      heroImg: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200",
+      thumbImg: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=200",
+      cuisine: "Pizza · Italian · Pasta",
+      emoji: "🍕",
+    };
+  })();
 
   useEffect(() => {
     const fetchFoods = async () => {
       try {
-        const response = await fetch('http://localhost:5001/api/foods');
+        const response = await fetch('/api/foods');
         let data = await response.json();
         
         // Dynamically filter data based on restaurant name for demo purposes
-        const lowerName = restaurantName.toLowerCase();
         let targetCategory = "";
         if (lowerName.includes("burger")) targetCategory = "Burgers";
         else if (lowerName.includes("pizza")) targetCategory = "Pizzas";
@@ -61,7 +149,20 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
         else if (lowerName.includes("green") || lowerName.includes("healthy")) targetCategory = "Healthy";
 
         if (targetCategory) {
-          data = data.filter(item => item.category === targetCategory);
+          const target = targetCategory.toLowerCase();
+          data = data.filter(item => (item.category || "").toLowerCase() === target);
+        }
+
+        // If API has no items for this restaurant/category (common in demos),
+        // fall back to a local menu so Burger click doesn't show pizza items.
+        if (targetCategory && data.length === 0) {
+          const fallback = FALLBACK_MENU_BY_CATEGORY[targetCategory.toLowerCase()];
+          if (fallback) {
+            setMenuSections(fallback);
+            setActiveNav(fallback[0]?.id || "bestsellers");
+            setLoading(false);
+            return;
+          }
         }
 
         // Group by category
@@ -82,13 +183,17 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
         setLoading(false);
       } catch (error) {
         console.error('Error fetching foods:', error);
-        show('Failed to load menu. Please try again.', 'error');
+        const fallbackKey = lowerName.includes("burger") ? "burgers" : "pizzas";
+        const fallback = FALLBACK_MENU_BY_CATEGORY[fallbackKey] || MENU_SECTIONS;
+        setMenuSections(fallback);
+        setActiveNav(fallback[0]?.id || "bestsellers");
+        show('Menu loaded in demo mode (API unavailable).', 'info');
         setLoading(false);
       }
     };
 
     fetchFoods();
-  }, []);
+  }, [restaurantName]);
 
   const cartTotal = cart.reduce((a, b) => a + b.price * b.qty, 0);
   const cartCount = cart.reduce((a, b) => a + b.qty, 0);
@@ -98,7 +203,7 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
     setCart(prev => {
       const ex = prev.find(i => i.name === item.name);
       if (ex) return prev.map(i => i.name === item.name ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { id: Date.now(), name: item.name, price: item.price, img: item.img || "", qty: 1 }];
+      return [...prev, { id: Date.now(), name: item.name, price: item.price, img: item.img || "", qty: 1, restaurant: restaurantName, restaurantEmoji: restaurantMeta.emoji }];
     });
     show(item.name + " added to cart!", "success");
   };
@@ -113,15 +218,20 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
 
   return (
     <div>
-      <SiteHeader cartCount={cartCount} onNav={onNav} currentAddress={currentAddress} />
+      <SiteHeader cartCount={cartCount} onNav={onNav} currentAddress={currentAddress} user={user} />
 
       {/* HERO */}
       <div style={{ height: 280, position: "relative", overflow: "hidden" }}>
-        <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.src = "https://placehold.co/1200x280/FFEBE0/E63946?text=🍕+Pizza+Palace"; }} alt="" />
+        <img
+          src={restaurantMeta.heroImg}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={e => { e.target.src = `https://placehold.co/1200x280/FFEBE0/E63946?text=${encodeURIComponent(restaurantMeta.emoji + " " + restaurantName)}`; }}
+          alt=""
+        />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.7),rgba(0,0,0,0.2))" }}></div>
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 28, zIndex: 1, color: "#fff" }}>
-          <h1 style={{ fontSize: "2rem", marginBottom: 4 }}>Pizza Palace</h1>
-          <p style={{ opacity: 0.85 }}>Pizza · Italian · Pasta · {currentAddress}</p>
+          <h1 style={{ fontSize: "2rem", marginBottom: 4 }}>{restaurantName}</h1>
+          <p style={{ opacity: 0.85 }}>{restaurantMeta.cuisine} · {navData?.location ? `${navData.location}, Lucknow` : "Lucknow"}</p>
         </div>
       </div>
 
@@ -136,12 +246,20 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
         <div style={{ background: "var(--card)", borderRadius: "var(--radius-xl)", margin: "-40px 0 0", position: "relative", zIndex: 2, padding: "24px 28px", boxShadow: "var(--shadow)", border: "1px solid var(--border)", marginBottom: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 20, marginBottom: 16 }}>
             <div style={{ width: 72, height: 72, borderRadius: "var(--radius-lg)", overflow: "hidden", border: "3px solid var(--border)", flexShrink: 0 }}>
-              <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?w=200" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.src = "https://placehold.co/72/FFEBE0/E63946?text=🍕"; }} alt="" />
+              <img
+                src={restaurantMeta.thumbImg}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={e => { e.target.src = `https://placehold.co/72/FFEBE0/E63946?text=${encodeURIComponent(restaurantMeta.emoji)}`; }}
+                alt=""
+              />
             </div>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: "1.5rem", marginBottom: 6 }}>{restaurantName}</h2>
-              <div style={{ fontSize: "0.85rem", color: "var(--text3)", marginBottom: 10 }}>{restaurantName.includes("Pizza") ? "Pizza · Italian" : restaurantName.includes("Burger") ? "Burgers · Fast Food" : "Multi Cuisine"} · {currentAddress}</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className="menu-hero-info fade-up-1">
+              <div style={{ fontSize: "2rem", fontWeight: 900, marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
+                {restaurantName}
+                {restaurantMeta.badge && <span className="badge badge-green" style={{ fontSize: "0.7rem", verticalAlign: "middle" }}>{restaurantMeta.badge}</span>}
+              </div>
+              <div style={{ fontSize: "0.85rem", color: "var(--text3)", marginBottom: 10 }}>{restaurantMeta.cuisine} · {navData?.location ? `${navData.location}, Lucknow` : "Lucknow"}</div>
+              <div style={{ display: "flex", gap: 16, fontSize: "0.8rem", fontWeight: 700 }}>
                 <span className="badge badge-green">Pure Veg Available</span>
                 <span className="badge badge-red">50% OFF up to ₹100</span>
                 <span className="badge badge-orange">Free Delivery</span>
@@ -183,7 +301,13 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
                 <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 10 }}></i> Loading delicious menu...
               </div>
             ) : (
-              menuSections.map(sec => (
+              menuSections.length === 0 ? (
+                <div style={{ padding: 40, textAlign: "center", background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+                  <div style={{ fontSize: "2rem", marginBottom: 10 }}>{restaurantMeta.emoji}</div>
+                  <div style={{ fontSize: "1.05rem", fontWeight: 900, marginBottom: 6 }}>No items found</div>
+                  <div style={{ color: "var(--text3)", fontSize: "0.9rem" }}>This restaurant doesn’t have items in the selected category yet.</div>
+                </div>
+              ) : menuSections.map(sec => (
               <div key={sec.id} style={{ marginBottom: 32 }}>
                 <div style={{ fontFamily: "var(--font-display)", fontSize: "1.2rem", fontWeight: 900, marginBottom: 16, paddingBottom: 10, borderBottom: "2px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
                   {sec.title}
@@ -220,7 +344,12 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
                       </div>
                     </div>
                     <div style={{ width: 110, height: 90, borderRadius: "var(--radius)", overflow: "hidden", flexShrink: 0 }}>
-                      <img src={item.img} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.src = "https://placehold.co/110x90/FFEBE0/E63946?text=🍕"; }} alt={item.name} />
+                      <img
+                        src={item.img}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        onError={e => { e.target.src = `https://placehold.co/110x90/FFEBE0/E63946?text=${encodeURIComponent(restaurantMeta.emoji)}`; }}
+                        alt={item.name}
+                      />
                     </div>
                   </div>
                 ))}
@@ -233,7 +362,7 @@ export default function MenuPage({ onNav, cart, setCart, addresses = [], selecte
           <div style={{ position: "sticky", top: "calc(var(--header-h) + 16px)", height: "fit-content", background: "var(--card)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow)", border: "1px solid var(--border)", overflow: "hidden" }}>
             <div style={{ background: "linear-gradient(135deg,var(--red),var(--orange))", padding: "16px 20px", color: "#fff" }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: "1rem", fontWeight: 900 }}>🛒 Your Order</div>
-              <div style={{ fontSize: "0.78rem", opacity: 0.85 }}>Pizza Palace · {cartCount} items</div>
+              <div style={{ fontSize: "0.78rem", opacity: 0.85 }}>{restaurantName} · {cartCount} items</div>
             </div>
             <div style={{ padding: 16, maxHeight: 300, overflowY: "auto" }}>
               {cart.map(item => (

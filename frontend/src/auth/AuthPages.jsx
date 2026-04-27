@@ -1,14 +1,74 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useToast, ToastContainer } from "../shared/components";
+import { useGoogleLogin } from '@react-oauth/google';
 
 /* ═══════════════════════════════════════════════
    LOGIN PAGE — togglePwd(), handleLogin()
 ═══════════════════════════════════════════════ */
 export function LoginPage({ onLogin, onNav }) {
   const [showPw, setShowPw] = useState(false);
-  const [email, setEmail] = useState("arjun@example.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const { toasts, show } = useToast();
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      show("Verifying Google Auth...", "info");
+      try {
+        // useGoogleLogin gives access_token, we need to handle this in backend or get user info
+        const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+        });
+        const userInfo = await res.json();
+        
+        // Now send this info to our backend to login/register
+        const backendRes = await fetch("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            isCustom: true,
+            email: userInfo.email,
+            name: userInfo.name,
+            picture: userInfo.picture,
+            sub: userInfo.sub
+          })
+        });
+        const data = await backendRes.json();
+        if (!backendRes.ok) throw new Error(data.message || "Google Login failed");
+        
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data));
+        setTimeout(() => onLogin(data.role), 500);
+      } catch (err) {
+        show(err.message, "error");
+      }
+    },
+    onError: () => show('Google Login Failed', 'error')
+  });
+
+  const DEMO_ACCOUNTS = [
+    { label: "👤 Customer",   email: "gaurav@okaxis",          password: "password123",   role: "customer",   color: "var(--red)" },
+    { label: "🍴 Restaurant", email: "restaurant@bitebolt.com", password: "restaurant123", role: "restaurant", color: "var(--orange)" },
+    { label: "⚙️ Admin",     email: "admin@bitebolt.com",      password: "admin123",      role: "admin",      color: "var(--teal)" },
+  ];
+
+  const quickLogin = async (acc) => {
+    show(`Logging in as ${acc.label}...`, "info");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: acc.email, password: acc.password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Login failed");
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data));
+      setTimeout(() => onLogin(data.role), 400);
+    } catch (err) {
+      show(err.message, "error");
+    }
+  };
 
   // togglePwd()
   const togglePwd = () => setShowPw(p => !p);
@@ -18,7 +78,7 @@ export function LoginPage({ onLogin, onNav }) {
     e.preventDefault();
     show("Logging in...", "info");
     try {
-      const res = await fetch("http://localhost:5001/api/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -49,7 +109,7 @@ export function LoginPage({ onLogin, onNav }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "relative", zIndex: 1, width: "100%", maxWidth: 320 }}>
             {[["⚡", "30 Min Delivery", "Average delivery time"], ["🔒", "100% Secure", "Safe payments guaranteed"], ["⭐", "500+ Restaurants", "Best picks near you"]].map(([icon, title, sub]) => (
               <div key={title} style={{ display: "flex", alignItems: "center", gap: 14, background: "rgba(255,255,255,0.12)", borderRadius: "var(--radius)", padding: "14px 18px", color: "#fff", backdropFilter: "blur(4px)" }}>
-                <div style={{ width: 36, height: 36, background: "rgba(255,255,255,0.2)", borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{icon}</div>
+                <div style={{ width: 36, height: 36, background: "rgba(255,255,255,0.2)", borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyItems: "center", fontSize: 16, flexShrink: 0 }}>{icon}</div>
                 <div><strong style={{ display: "block", fontSize: "0.88rem", fontWeight: 800 }}>{title}</strong><span style={{ fontSize: "0.75rem", opacity: 0.75 }}>{sub}</span></div>
               </div>
             ))}
@@ -59,15 +119,42 @@ export function LoginPage({ onLogin, onNav }) {
         {/* RIGHT PANEL */}
         <div className="auth-right">
           <div className="auth-form-wrap">
-            <div style={{ marginBottom: 32 }}>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: "1.8rem", fontWeight: 900, color: "var(--red)", marginBottom: 6 }}><i className="fa-solid fa-bolt"></i> BiteBolt</div>
-              <h1 style={{ fontSize: "2rem", fontWeight: 900, marginBottom: 8 }}>Welcome back! 👋</h1>
-              <p style={{ color: "var(--text2)", fontSize: "0.9rem" }}>Sign in to your account to order food</p>
+            <div style={{ marginBottom: 32, textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: "2rem", fontWeight: 900, color: "var(--red)", marginBottom: 12 }}><i className="fa-solid fa-bolt"></i> BiteBolt</div>
+              <h1 style={{ fontSize: "2.2rem", fontWeight: 800, marginBottom: 8, fontFamily: "var(--font-body)", letterSpacing: "-0.02em" }}>Welcome back! 👋</h1>
+              <p style={{ color: "var(--text2)", fontSize: "0.95rem", fontWeight: 500 }}>Sign in to your account to order food</p>
             </div>
 
-            <button type="button" className="social-btn" onClick={() => show("Google Auth mocked for demo", "info")}><img src="https://www.google.com/favicon.ico" width="18" alt="" /> Continue with Google</button>
-            <button type="button" className="social-btn" onClick={() => show("Facebook Auth mocked for demo", "info")}><i className="fa-brands fa-facebook" style={{ color: "#1877F2" }}></i> Continue with Facebook</button>
-            <div className="form-divider">or sign in with email</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+              <button 
+                type="button" 
+                className="social-btn" 
+                onClick={() => googleLogin()}
+                style={{ 
+                  width: "100%", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center", 
+                  gap: 12, 
+                  padding: "12px", 
+                  borderRadius: "var(--radius-full)", 
+                  border: "1.5px solid var(--border)",
+                  background: "#fff",
+                  color: "var(--text)",
+                  fontFamily: "var(--font-body)",
+                  fontSize: "1rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all var(--transition)"
+                }}
+                onMouseOver={e => { e.currentTarget.style.borderColor = "var(--red)"; e.currentTarget.style.background = "var(--red-light)"; e.currentTarget.style.color = "var(--red)"; }}
+                onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--text)"; }}
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 18, height: 18 }} />
+                Continue with Google
+              </button>
+            </div>
+            <div className="form-divider" style={{ fontFamily: "var(--font-body)", fontWeight: 600 }}>or sign in with email</div>
 
             <form onSubmit={handleLogin}>
               <div className="form-group">
@@ -92,16 +179,25 @@ export function LoginPage({ onLogin, onNav }) {
                 <label className="form-check"><input type="checkbox" defaultChecked /> Remember me</label>
                 <a onClick={() => onNav("forgot")} style={{ fontSize: "0.82rem", color: "var(--red)", fontWeight: 700, cursor: "pointer" }}>Forgot password?</a>
               </div>
-              <button type="submit" className="btn btn-primary btn-full btn-lg">Sign In <i className="fa-solid fa-arrow-right"></i></button>
+              <button type="submit" className="btn btn-primary btn-full btn-lg" style={{ fontFamily: "var(--font-body)", fontSize: "1rem", fontWeight: 700 }}>Sign In <i className="fa-solid fa-arrow-right"></i></button>
             </form>
 
             <div style={{ textAlign: "center", fontSize: "0.85rem", color: "var(--text2)", marginTop: 20 }}>
               New to BiteBolt? <a onClick={() => onNav("register")} style={{ color: "var(--red)", fontWeight: 800, cursor: "pointer" }}>Create account</a>
             </div>
-            <div style={{ textAlign: "center", marginTop: 24, fontSize: "0.75rem", color: "var(--text3)" }}>
-              <a onClick={() => onLogin("restaurant")} style={{ color: "var(--orange)", fontWeight: 700, cursor: "pointer" }}>🍴 Restaurant Login</a>
-              {" · "}
-              <a onClick={() => onLogin("admin")} style={{ color: "var(--teal)", fontWeight: 700, cursor: "pointer" }}>⚙️ Admin Login</a>
+            {/* Quick Demo Login */}
+            <div style={{ marginTop: 20, background: "var(--bg2)", borderRadius: "var(--radius-lg)", padding: "14px 18px", border: "1.5px dashed var(--border)" }}>
+              <div style={{ fontSize: "0.72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", marginBottom: 10 }}>⚡ Quick Demo Login</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {DEMO_ACCOUNTS.map(acc => (
+                  <button key={acc.role} type="button" onClick={() => quickLogin(acc)}
+                    style={{ padding: "7px 14px", borderRadius: "var(--radius-full)", border: `1.5px solid ${acc.color}`, background: "transparent", color: acc.color, fontSize: "0.78rem", fontWeight: 800, cursor: "pointer", transition: "all var(--transition)" }}
+                    onMouseOver={e => { e.currentTarget.style.background = acc.color; e.currentTarget.style.color = "#fff"; }}
+                    onMouseOut={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = acc.color; }}>
+                    {acc.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -124,6 +220,39 @@ export function RegisterPage({ onLogin, onNav }) {
   const [regPassword, setRegPassword] = useState("");
   const { toasts, show } = useToast();
 
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      show("Verifying Google Auth...", "info");
+      try {
+        const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+        });
+        const userInfo = await res.json();
+        
+        const backendRes = await fetch("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            isCustom: true,
+            email: userInfo.email,
+            name: userInfo.name,
+            picture: userInfo.picture,
+            sub: userInfo.sub
+          })
+        });
+        const data = await backendRes.json();
+        if (!backendRes.ok) throw new Error(data.message || "Google Login failed");
+        
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data));
+        setTimeout(() => onLogin(data.role), 500);
+      } catch (err) {
+        show(err.message, "error");
+      }
+    },
+    onError: () => show('Google Login Failed', 'error')
+  });
+
   // checkStrength(v)
   const checkStrength = (v) => {
     let s = 0;
@@ -141,7 +270,7 @@ export function RegisterPage({ onLogin, onNav }) {
     e.preventDefault();
     show("Creating your account...", "info");
     try {
-      const res = await fetch("http://localhost:5001/api/auth/register", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -160,6 +289,8 @@ export function RegisterPage({ onLogin, onNav }) {
     }
   };
 
+
+
   return (
     <div style={{ background: "linear-gradient(135deg,#FFF5EE,#FFEBE0)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 520, background: "var(--card)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-xl)", overflow: "hidden", animation: "fadeUp 0.5s ease" }}>
@@ -176,7 +307,35 @@ export function RegisterPage({ onLogin, onNav }) {
             ))}
           </div>
 
-          <button type="button" className="social-btn" onClick={() => show("Google Auth mocked for demo", "info")}><img src="https://www.google.com/favicon.ico" width="18" alt="" /> Sign up with Google</button>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+            <button 
+              type="button" 
+              className="social-btn" 
+              onClick={() => googleLogin()}
+              style={{ 
+                width: "100%", 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center", 
+                gap: 12, 
+                padding: "12px", 
+                borderRadius: "var(--radius-full)", 
+                border: "1.5px solid var(--border)",
+                background: "#fff",
+                color: "var(--text)",
+                fontFamily: "var(--font-body)",
+                fontSize: "1rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all var(--transition)"
+              }}
+              onMouseOver={e => { e.currentTarget.style.borderColor = "var(--red)"; e.currentTarget.style.background = "var(--red-light)"; e.currentTarget.style.color = "var(--red)"; }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--text)"; }}
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 18, height: 18 }} />
+              Sign up with Google
+            </button>
+          </div>
           <div className="form-divider">or fill in details</div>
 
           <form onSubmit={handleRegister}>
@@ -314,15 +473,19 @@ export function ForgotPasswordPage({ onNav }) {
               {otp.map((v, i) => (
                 <input key={i} ref={el => (otpRefs.current[i] = el)} type="text" maxLength={1} value={v}
                   onChange={e => otpNext(e.target.value, i)}
-                  style={{ width: 46, height: 52, textAlign: "center", fontSize: "1.4rem", fontWeight: 800, background: "var(--gray4)", border: `1.5px solid ${v ? "var(--red)" : "transparent"}`, borderRadius: "var(--radius)", fontFamily: "var(--font-display)", transition: "all .2s" }} />
+                  onKeyDown={e => { if (e.key === 'Backspace' && !v && i > 0) otpRefs.current[i - 1]?.focus(); }}
+                  style={{ width: 44, height: 50, textAlign: "center", fontSize: "1.2rem", fontWeight: 800, border: "2px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg2)", transition: "all var(--transition)" }}
+                  onFocus={e => e.target.style.borderColor = "var(--red)"}
+                  onBlur={e => e.target.style.borderColor = "var(--border)"}
+                />
               ))}
             </div>
             <button className="btn btn-primary btn-full btn-lg" onClick={goStep3}>Verify OTP</button>
-            <p style={{ marginTop: 12, fontSize: "0.82rem", color: "var(--text3)" }}>Didn't receive? <a href="#" style={{ color: "var(--red)", fontWeight: 700 }}>Resend OTP</a></p>
+            <p style={{ fontSize: "0.82rem", color: "var(--text3)", marginTop: 16 }}>Didn't receive? <a style={{ color: "var(--red)", fontWeight: 700, cursor: "pointer" }}>Resend in 0:45</a></p>
           </div>
         )}
 
-        {/* Step 3 — New Password */}
+        {/* Step 3 — New Pwd */}
         {step === 3 && (
           <div>
             <div className="form-group" style={{ textAlign: "left" }}>
@@ -331,18 +494,16 @@ export function ForgotPasswordPage({ onNav }) {
             </div>
             <div className="form-group" style={{ textAlign: "left" }}>
               <label className="form-label">Confirm Password</label>
-              <div className="input-wrap"><i className="fa-solid fa-lock input-icon"></i><input type="password" className="form-input" placeholder="Repeat new password" /></div>
+              <div className="input-wrap"><i className="fa-solid fa-lock input-icon"></i><input type="password" className="form-input" placeholder="Repeat password" /></div>
             </div>
-            <button className="btn btn-primary btn-full btn-lg" onClick={resetDone}>Reset Password <i className="fa-solid fa-check"></i></button>
+            <button className="btn btn-primary btn-full btn-lg" onClick={resetDone}>Reset Password</button>
           </div>
         )}
 
         {/* Step 4 — Done */}
         {step === 4 && (
           <div>
-            <div style={{ fontSize: "4rem", margin: "16px 0" }}>✅</div>
-            <p style={{ color: "var(--text2)", fontSize: "0.88rem", margin: "12px 0 20px" }}>Your password has been updated successfully.</p>
-            <button className="btn btn-primary btn-full btn-lg" onClick={() => onNav("login")}>Back to Login</button>
+            <button className="btn btn-primary btn-full btn-lg" onClick={() => onNav("login")}>Sign In Now</button>
           </div>
         )}
       </div>
